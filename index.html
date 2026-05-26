@@ -25,11 +25,16 @@
         .calc-row { margin-bottom: 25px; }
         .calc-value { font-size: 22px; font-weight: 800; }
         .calc-sub { font-size: 14px; opacity: 0.9; font-weight: 400; }
-        .static-val { width: 100%; height: 45px; padding: 12px 15px; border: 2px solid #edf2f7; border-radius: 10px; box-sizing: border-box; font-size: 14px; background-color: #edf2f7; color: #4a5568; font-weight: 600; display: flex; align-items: center; }
+        button.main-btn:disabled { background: #a0aec0; cursor: not-allowed; opacity: 0.7; }
+        .static-val { width: 100%; height: 45px; padding: 12px 15px; border: 2px solid #edf2f7; border-radius: 10px; box-sizing: border-box; font-size: 14px; background-color: #edf2f7; color: #4a5568; font-weight: 6
     </style>
 </head>
 <body>
-
+<div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+<h1 style="text-align: center; color: #2b6cb0; font-weight: 800; margin-bottom: 30px; font-size: 28px; text-transform: uppercase; letter-spacing: 1px;">
+        Hawk Server Calculator - JSN
+    </h1>
+	
 <div class="main-wrapper">
     <div class="col-inputs">
         <div class="section-title">1. System Hardware</div>
@@ -49,7 +54,7 @@
         <div class="input-group"><label>RAID Controller</label><div id="raidCard" class="static-val"></div></div>
         <div class="input-group"><label>Drive Bays</label><div id="bays" class="static-val"></div></div>
         <div class="input-group"><label>GPU</label><div id="gpu" class="static-val"></div></div>
-        <button class="main-btn" onclick="downloadPDF()">Export Full Quote</button>
+        <button class="main-btn" onclick="downloadPDF()" disabled>Export Full Quote</button>
         <span id="calcStatus" style="font-size:11px; color:#a0aec0; display:block; text-align:center; margin-top:10px;">Standby</span>
     </div>
 
@@ -74,22 +79,28 @@
     <div class="col-preview">
         <h2 style="margin-top:0;">Quote Breakdown</h2>
         <table class="summary-table">
-            <tr>
-                <td rowspan="2" class="row-label" id="prevModel">Select Model</td>
-                <td id="prevSpec" style="font-size:11px; text-align:center;">Please select a model...</td>
-                <td class="row-price" style="font-size: 18px; border-bottom: 1px solid #1a202c;">
-                    <div style="font-size: 10px; color: #718096; text-transform: uppercase;">Hardware Base</div>
-                    <span id="hwPriceDisplay">$0.00</span>
-                </td>
-            </tr>
-            <tr>
-                <td style="font-size:11px; color:#4a5568; text-align: center; border-top: 1px solid #1a202c;">Storage Config Included</td>
-                <td class="row-price" style="font-size: 18px; border-top: 1px solid #1a202c;">
-                    <div style="font-size: 10px; color: #718096; text-transform: uppercase;">Storage Base</div>
-                    <span id="storagePriceDisplay">$0.00</span>
-                </td>
-            </tr>
-        </table>
+    <tr>
+        <td rowspan="3" class="row-label" id="prevModel">Select Model</td>
+        <td id="prevSpec" style="font-size:11px; text-align:center;">Please select a model...</td>
+        <td class="row-price" style="font-size: 18px; border-bottom: 1px solid #1a202c;">
+            <div style="font-size: 10px; color: #718096; text-transform: uppercase;">Hardware Price</div>
+            <span id="hwPriceDisplay">$0.00</span>
+        </td>
+    </tr>
+    <tr>
+        <td style="font-size:11px; color:#4a5568; text-align: center; border-top: 1px solid #1a202c;">Video Storage Hard Drives</td>
+        <td class="row-price" style="font-size: 18px; border-top: 1px solid #1a202c; border-bottom: 1px solid #1a202c;">
+            <div style="font-size: 10px; color: #718096; text-transform: uppercase;">Storage Price</div>
+            <span id="storagePriceDisplay">$0.00</span>
+        </td>
+    </tr>
+    <tr style="background-color: #f8fafc;">
+        <td style="font-size:12px; font-weight: bold; text-align: center; border-top: 1px solid #1a202c;">TOTAL SYSTEM PRICE:</td>
+        <td class="row-price" style="font-size: 20px; color: #2b6cb0; border-top: 1px solid #1a202c;">
+            <span id="systemTotalPriceDisplay">$0.00</span>
+        </td>
+    </tr>
+</table>
         <div class="raid-result-box">
             <div style="font-weight:bold;">RAID Summary: <span id="raidLabelTop">RAID 10</span></div>
             <div style="font-size:14px;">Usable Capacity: <span id="raidCap" style="font-weight:bold;">0.0 TB</span> | Fault Tolerance: <span id="raidFault" style="font-weight:bold;">0 drive</span></div>
@@ -109,103 +120,203 @@
 </div>
 
 <script>
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbxAAMlAvRX6C8I_53IFu_rP9xOfslTjAJBlJ6L9vS9Yg-_R17u1pjlSGDpGZgSTvt3d/exec";
-    let currentRequestId = 0;
-    window.serverPriceFinal = 0; 
-    window.drivePriceFinal = 0; 
-    window.unitPriceRaw = 0;
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbzjBH2LlyI6G4QsEExpF6wgDzNcxVrJCTyJKYUM7A7ownb_ZZNrLn5LlJW7xyDRvBAN/exec";
+    
+	let debounceTimer;
+	
+    // Global State
+    let state = {
+        model: "HAWK16",
+        disks: 0,
+        size: 0
+    };
+
+    // --- THE CALLBACK: Handles data coming back from Google ---
+    window.callback = function(data) {
+    let hwFinal = 0;
+    const exportBtn = document.querySelector('.main-btn'); 
+    const basicQty = parseInt(document.getElementById('camQty').value) || 0;
+    const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
+    const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
+    
+    // 1. Pricing Logic
+    if (data.fixedModel) {
+        hwFinal = data.serverBasePrice; 
+    } else {
+        const markupFactor = data.markup || 1.30;
+        hwFinal = data.serverBasePrice * markupFactor;
+    }
+
+    const storageFinal = data.driveUnitPrice * state.disks;
+
+    // 2. Update displays
+    document.getElementById('hwPriceDisplay').innerText = "$" + hwFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('storagePriceDisplay').innerText = "$" + storageFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
+    
+    const systemTotal = hwFinal + storageFinal;
+    if(document.getElementById('systemTotalPriceDisplay')) {
+        document.getElementById('systemTotalPriceDisplay').innerText = "$" + systemTotal.toLocaleString(undefined, {minimumFractionDigits: 2});
+    }
+    
+    updateLabels();
+    
+    // 3. Status and Button Logic
+    document.getElementById('calcStatus').innerText = "Ready";
+    
+    // Only enable button if there is at least 1 camera total
+    if (basicQty > 0 || faceQty > 0 || lprQty > 0) {
+        exportBtn.disabled = false;
+    } else {
+        exportBtn.disabled = true;
+    }
+};
+
+    let currentRequestId = 0; // Ensure this variable is at the top of your <script> section
+
+function fetchPrices() {
+    const statusLabel = document.getElementById('calcStatus');
+    const exportBtn = document.querySelector('.main-btn'); // Get the Export button
+    
+    statusLabel.innerText = "Syncing...";
+    exportBtn.disabled = true; // DISABLE BUTTON
+    
+    const requestId = ++currentRequestId;
+    
+    const params = { 
+        model: state.model,
+        cpu: document.getElementById('cpu').innerText || "None", 
+        ram: document.getElementById('ramSelect').innerText || "None", 
+        serverCase: (state.model === "HAWK8") ? "Tower" : "Chassis",
+        bay: document.getElementById('bays').innerText || "None", 
+        raidCard: document.getElementById('raidCard').innerText || "None",
+        gpu: document.getElementById('gpu').innerText || "None",
+        driveQty: state.disks, 
+        driveSize: state.size, 
+        metadata: (state.model === "HAWK16" || state.model === "HAWK8") ? "1TB" : "2TB",
+        // 2. Tell Google to use a unique callback name for this specific "ticket"
+        callback: "callback_" + requestId 
+    };
+
+    // 3. Create the temporary "Ear" (Callback) for this specific request
+    window["callback_" + requestId] = function(data) {
+        // ONLY update the screen if this response matches the LATEST request sent
+        if (requestId === currentRequestId) {
+            window.callback(data); 
+        }
+        // Clean up the temporary function and script tag to save memory
+        delete window["callback_" + requestId];
+        const oldScript = document.getElementById("jsonp_" + requestId);
+        if (oldScript) oldScript.remove();
+    };
+
+    const script = document.createElement('script');
+    script.id = "jsonp_" + requestId; // Give it an ID so we can remove it later
+    script.src = webAppUrl + "?" + new URLSearchParams(params).toString() + "&t=" + Date.now();
+    document.body.appendChild(script);
+}
+
+    function calculate() {
+        updateRAID();
+        fetchPrices();
+    }
 
     function updateRAID() {
         const n = parseInt(document.getElementById('raidDisks').value) || 0;
         const s = parseFloat(document.getElementById('raidSize').value) || 0;
         const type = document.getElementById('raidType').value;
         let cap = 0; let fault = "";
+        
         if (type === "0") { cap = n * s; fault = "None"; }
         else if (type === "1") { cap = s; fault = (n-1) + " drive(s)"; }
         else if (type === "5") { cap = (n > 2) ? (n-1)*s : 0; fault = "1 drive"; }
         else if (type === "6") { cap = (n > 3) ? (n-2)*s : 0; fault = "2 drives"; }
         else if (type === "10") { cap = (n >= 4) ? (n/2)*s : 0; fault = "1 drive/set"; }
+        
         document.getElementById('raidCap').innerText = cap.toFixed(1) + " TB";
         document.getElementById('raidLabelTop').innerText = "RAID " + type;
         document.getElementById('raidFault').innerText = fault;
-    }
-
-    function handleCallback(data) {
-        const n = parseInt(document.getElementById('raidDisks').value) || 0;
-        window.serverPriceFinal = data.serverBasePrice * data.markup;
-        window.unitPriceRaw = data.driveUnitPrice; 
-        window.drivePriceFinal = window.unitPriceRaw * n;
-        
-        document.getElementById('hwPriceDisplay').innerText = "$" + window.serverPriceFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('storagePriceDisplay').innerText = "$" + window.drivePriceFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
-        
-        document.getElementById('calcStatus').innerText = "Updated";
-        updateLabels();
     }
 
     function calculateArchive() {
         const modelDropdown = document.getElementById('modelSelect');
         const basicQty = parseInt(document.getElementById('camQty').value) || 0;
         document.getElementById('neuralCamQty').value = basicQty;
+        
         const neuralQty = basicQty; 
         const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
         const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
+		const exportBtn = document.querySelector('.main-btn');
+		
+		// NEW LOGIC: If all camera inputs are 0, keep button disabled and stop
+    if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
+        exportBtn.disabled = true;
+        document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
+        
+        // Optional: Reset displays to zero
+        document.getElementById('hwPriceDisplay').innerText = "$0.00";
+        document.getElementById('storagePriceDisplay').innerText = "$0.00";
+        if(document.getElementById('systemTotalPriceDisplay')) {
+            document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
+        }
+        return; // Stop the function here
+    }
 
-        let selectedModel = "";
-        if (basicQty > 0 && basicQty <= 16) selectedModel = "HAWK16";
-        else if (basicQty > 16 && basicQty <= 32) selectedModel = "HAWK32";
+        let selectedModel = "HAWK16";
+        if (basicQty > 16 && basicQty <= 32) selectedModel = "HAWK32";
         else if (basicQty > 32) selectedModel = "HAWK64";
 
-        if (selectedModel !== "" && selectedModel !== modelDropdown.value) {
-            modelDropdown.value = selectedModel;
-            updateStandardHardware();
-        }
+        state.model = selectedModel;
+        modelDropdown.value = selectedModel;
+        updateStandardHardware();
 
-        const archivePerBasicCam = 711.92;
-        const metadataPerSpecialCam = 37.90;
-        const totalArchiveTB = (basicQty * archivePerBasicCam) / 1000;
-        const totalMetaGB = (neuralQty + faceQty + lprQty) * metadataPerSpecialCam;
+        const totalArchiveTB = (basicQty * 711.92) / 1000;
+        const totalMetaGB = (neuralQty + faceQty + lprQty) * 37.90;
 
         const requiredRawTB = totalArchiveTB * 2;
         const availableSizes = [6, 8, 12, 22]; 
-        let selectedQty = 0, selectedSize = 0;
+        let selectedQty = 4, selectedSize = 6;
 
         if (totalArchiveTB > 0) {
-            let driveCountOptions = (modelDropdown.value === "HAWK64") ? [8, 6, 4] : [4];
+            let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
             let foundMatch = false;
             for (let qty of driveCountOptions) {
                 let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
                 if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
             }
-            if (!foundMatch) { selectedQty = (modelDropdown.value === "HAWK64") ? 8 : 4; selectedSize = 22; }
+            if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
         }
+
+        state.disks = selectedQty;
+        state.size = selectedSize;
 
         document.getElementById('raidDisks').value = selectedQty;
         document.getElementById('raidSize').value = selectedSize;
         document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
-        document.getElementById('dispArchiveMark').innerText = (totalArchiveTB * 1.0997).toFixed(2);
+        document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
 
         const metaContainer = document.getElementById('dispMeta');
         if (totalMetaGB >= 1000) {
             metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
-            document.getElementById('dispMetaMark').innerText = ((totalMetaGB / 1000) * 1.105).toFixed(2);
+            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
             metaContainer.nextSibling.textContent = " TB ";
         } else {
             metaContainer.innerText = totalMetaGB.toFixed(2);
-            document.getElementById('dispMetaMark').innerText = (totalMetaGB * 1.105).toFixed(2);
+            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
             metaContainer.nextSibling.textContent = " GB ";
         }
 
         updateLicenseUI(neuralQty, faceQty, lprQty);
-        document.getElementById('calcArchive').value = totalArchiveTB;
-        document.getElementById('calcMeta').value = totalMetaGB;
         calculate();
     }
 
     function updateLicenseUI(n, f, l) {
         const licenseRows = document.getElementById('licenseRows');
         let licenseHTML = "";
-        const items = [{ name: "IP Camera with Neural AI", part: "NFINT-CAML", price: 298, qty: n }, { name: "Facial Recognition", part: "NFINT-FRC1", price: 878, qty: f }, { name: "LPR License", part: "NFINT-LPVR", price: 1526, qty: l }];
+        const items = [
+            { name: "IP Camera with Neural AI", part: "NFINT-CAML", price: 300, qty: n }, 
+            { name: "Facial Recognition", part: "NFINT-FRC1", price: 900, qty: f }, 
+            { name: "LPR License", part: "NFINT-LPVR", price: 1600, qty: l }
+        ];
         let grandTotal = 0;
         items.forEach(item => {
             if (item.qty > 0) {
@@ -213,46 +324,61 @@
                 licenseHTML += `<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 15px;">${item.name}</td><td style="color: #718096;">${item.part}</td><td style="text-align: right;">$${item.price}</td><td style="text-align: center;">${item.qty}</td><td style="padding: 10px 15px; text-align: right; font-weight: bold;">$${rowTotal.toLocaleString()}</td></tr>`;
             }
         });
-        if (grandTotal > 0) { document.getElementById('licenseBreakdown').style.display = 'block'; licenseRows.innerHTML = licenseHTML; document.getElementById('dispLicenseTotal').innerText = "$" + grandTotal.toLocaleString(); }
-        else { document.getElementById('licenseBreakdown').style.display = 'none'; }
+        if (grandTotal > 0) { 
+            document.getElementById('licenseBreakdown').style.display = 'block'; 
+            licenseRows.innerHTML = licenseHTML; 
+            document.getElementById('dispLicenseTotal').innerText = "$" + grandTotal.toLocaleString(); 
+        } else { 
+            document.getElementById('licenseBreakdown').style.display = 'none'; 
+        }
     }
 
     function updateStandardHardware() {
-        const model = document.getElementById('modelSelect').value;
-        if (!model) return;
-        if (model === "HAWK16") { document.getElementById('cpu').innerText = "Intel Ultra 5"; document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; document.getElementById('raidCard').innerText = "RAID Controller"; document.getElementById('bays').innerText = "5 HDD Bay"; document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; }
-        else if (model === "HAWK32") { document.getElementById('cpu').innerText = "Intel Ultra 7"; document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; document.getElementById('raidCard').innerText = "RAID Controller"; document.getElementById('bays').innerText = "5 HDD Bay"; document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; }
-        else if (model === "HAWK64") { document.getElementById('cpu').innerText = "Intel Ultra 9"; document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; document.getElementById('raidCard').innerText = "RAID Controller"; document.getElementById('bays').innerText = "8 HDD Bay"; document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; }
-        updateLabels(); calculate();
-    }
-
-    function calculate() {
-        updateRAID();
-        const model = document.getElementById('modelSelect').value;
-        if (!model) return;
-        document.getElementById('calcStatus').innerText = "Calculating...";
-        const requestId = ++currentRequestId;
-        const metaRequested = (model === "HAWK16") ? "1TB" : "2TB";
-        const params = { cpu: document.getElementById('cpu').innerText, ram: document.getElementById('ramSelect').innerText, gpu: document.getElementById('gpu').innerText, bay: document.getElementById('bays').innerText, raidCard: document.getElementById('raidCard').innerText, driveQty: document.getElementById('raidDisks').value, driveSize: document.getElementById('raidSize').value, metadata: metaRequested, callback: `window.callback_${requestId}` };
-        
-        window[`callback_${requestId}`] = function(data) {
-            if (requestId === currentRequestId) { handleCallback(data); }
-            delete window[`callback_${requestId}`];
-        };
-        const script = document.createElement('script');
-        script.src = webAppUrl + "?" + new URLSearchParams(params).toString() + "&t=" + Date.now();
-        document.body.appendChild(script);
+        const model = state.model;
+        if (model === "HAWK16") { 
+            document.getElementById('cpu').innerText = "Intel Ultra 5"; 
+            document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+            document.getElementById('raidCard').innerText = "RAID Controller"; 
+            document.getElementById('bays').innerText = "5 HDD Bay"; 
+            document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+        }
+        else if (model === "HAWK32") { 
+            document.getElementById('cpu').innerText = "Intel Ultra 7"; 
+            document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+            document.getElementById('raidCard').innerText = "RAID Controller"; 
+            document.getElementById('bays').innerText = "5 HDD Bay"; 
+            document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+        }
+        else if (model === "HAWK64") { 
+            document.getElementById('cpu').innerText = "Intel Ultra 9"; 
+            document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; 
+            document.getElementById('raidCard').innerText = "RAID Controller"; 
+            document.getElementById('bays').innerText = "8 HDD Bay"; 
+            document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+        }
+        updateLabels();
     }
 
     function updateLabels() {
-        const model = document.getElementById('modelSelect').value;
-        if(!model) return;
-        const n = document.getElementById('raidDisks').value;
-        const s = document.getElementById('raidSize').value;
-        const metaText = (model === "HAWK16") ? "1TB Metadata" : "2TB Metadata";
-        document.getElementById('prevModel').innerText = model;
-        document.getElementById('prevSpec').innerText = `${document.getElementById('cpu').innerText}, ${document.getElementById('ramSelect').innerText}, 1TB OS, ${metaText}, MegaRAID 9560-8i, ${document.getElementById('bays').innerText}, ${document.getElementById('gpu').innerText}, Win 11 Pro & Netflow Ready`;
+    const model = state.model;
+    const n = state.disks;
+    const s = state.size;
+    const metaText = (model === "HAWK16") ? "1TB Metadata" : "2TB Metadata";
+
+    document.getElementById('prevModel').innerText = model;
+
+    // 1. Updated Specs: Removed the (${n}x${s}TB) from the end to keep it clean
+    document.getElementById('prevSpec').innerText = `${document.getElementById('cpu').innerText}, ${document.getElementById('ramSelect').innerText}, 1TB OS, ${metaText}, RAID Controller, ${document.getElementById('bays').innerText}, ${document.getElementById('gpu').innerText}`;
+
+    // 2. Move (NxSTB) to the Storage Row on the screen
+    const tables = document.getElementsByClassName('summary-table');
+    if (tables.length > 0) {
+        const rows = tables[0].getElementsByTagName('tr');
+        // Target the first cell of the second row
+        const storageCell = rows[1].getElementsByTagName('td')[0];
+        storageCell.innerText = `Video Storage Hard Drives - (${n}x${s}TB)`;
     }
+}
 
     function downloadPDF() {
     const { jsPDF } = window.jspdf;
@@ -301,6 +427,7 @@
     expiryDate.setDate(today.getDate() + 7);
     const formattedToday = today.toISOString().split('T')[0];
     const formattedExpiry = expiryDate.toISOString().split('T')[0];
+	
 
     doc.setFontSize(10).setFont("helvetica", "normal").setTextColor(0);
     doc.text(`Client: ${client}`, pageWidth / 2, 35, { align: "center" });
@@ -311,30 +438,28 @@
     doc.text(`Quote expiration date: ${formattedExpiry}`, pageWidth / 2, 58, { align: "center" });
     doc.setTextColor(0);
 
-    // 4. MAIN QUOTE TABLE (As requested in image_268905.png)
+    // 4. MAIN QUOTE TABLE
     const tableTop = 65;
     const tableHeight = 40; 
     const midPoint = tableTop + (tableHeight / 2);
 
-    // Draw frame and vertical separators
     doc.setDrawColor(0).setLineWidth(0.5).rect(14, tableTop, 182, tableHeight); 
     doc.line(65, tableTop, 65, tableTop + tableHeight);  
     doc.line(155, tableTop, 155, tableTop + tableHeight); 
-    
-    // NEW: Draw horizontal split line for middle and right columns
     doc.line(65, midPoint, 196, midPoint); 
 
     // Model Name
     doc.setFontSize(14).setFont("helvetica", "bold");
     doc.text(model, 39.5, midPoint + 2, { align: "center" });
 
-    // Center Column - TOP: Hardware Specs
+    // Center Column - TOP: Specs
     doc.setFontSize(8).setFont("helvetica", "normal");
     const splitSpecs = doc.splitTextToSize(specs, 85); 
     doc.text(splitSpecs, 110, tableTop + 8, { align: "center" }); 
 
-    // Column 2 - BOTTOM: Storage Config with dynamic size
-    doc.text(`Storage Config included - ${n}x${s}TB`, 110, midPoint + 12, { align: "center" });
+    // Center Column - BOTTOM: Storage row with dynamic info
+    // This places "Storage Config Included (4x6TB)" exactly where you want it
+    doc.text(`Video Storage Hard Drives - (${n}x${s}TB)`, 110, midPoint + 12, { align: "center" });
 	
     // Price Column - TOP: Hardware Base
     doc.setFontSize(7).setTextColor(100);
@@ -350,6 +475,24 @@
 
     let currentY = tableTop + tableHeight + 10;
     doc.setTextColor(0);
+	
+	const systemTotalRaw = (parseFloat(hwPrice.replace(/[^0-9.-]+/g,"")) + parseFloat(storagePrice.replace(/[^0-9.-]+/g,"")));
+const systemTotalFormatted = "$" + systemTotalRaw.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+// 1. Draw the Bottom Rectangle for the Total
+doc.setDrawColor(0).setFillColor(245, 247, 250); // Light grey background for total
+doc.rect(65, tableTop + tableHeight, 131, 10, 'FD'); // Spans mid and right columns
+
+// 2. Add the "TOTAL SYSTEM PRICE" text
+doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(0);
+doc.text("TOTAL SYSTEM PRICE:", 110, tableTop + tableHeight + 6.5, { align: "center" });
+
+// 3. Add the Calculated Total
+doc.setFontSize(11).setTextColor(0, 75, 99); // Use your blue brand color
+doc.text(systemTotalFormatted, 175.5, tableTop + tableHeight + 6.5, { align: "center" });
+
+// Update currentY so license tables don't overlap
+currentY = tableTop + tableHeight + 15;
 
     // --- 3. NEW: Professional Software License Table ---
     // Pulling QTY from Basic Camera for Neural Tracker display as requested
