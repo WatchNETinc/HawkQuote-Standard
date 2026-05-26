@@ -424,7 +424,7 @@ function fetchPrices() {
     // 3. HEADER TEXT & DATES
     const today = new Date();
     const expiryDate = new Date();
-    expiryDate.setDate(today.getDate() + 7);
+    expiryDate.setDate(today.getDate() + 30);
     const formattedToday = today.toISOString().split('T')[0];
     const formattedExpiry = expiryDate.toISOString().split('T')[0];
 	
@@ -620,7 +620,7 @@ currentY = tableTop + tableHeight + 15;
     doc.setFontSize(7).setFont("helvetica", "normal").text("www.watchnetinc.com / info@watchnetinc.com", pageWidth / 2, 287, { align: "center" });
 
     doc.setTextColor(150).setFontSize(7).setFont("helvetica", "italic");
-    const disclaimer = "Quote Validity: This quotation is valid for 7 days from the date issued. Pricing is subject to change after expiration due to current market fluctuations.";
+    const disclaimer = "Quote Validity: This quotation is valid for 30 days from the date issued. Pricing is subject to change after expiration due to current market fluctuations.";
     doc.text(doc.splitTextToSize(disclaimer, 180), 14, 293);
 
     doc.save(`${client}_${poNumber}_Hawk_Quote.pdf`);
