@@ -530,7 +530,7 @@ currentY = tableTop + tableHeight + 15;
 
         // Neural Tracker Row (Uses Basic Qty)
         if (basicQtyForNeural > 0) {
-            const price = basicQtyForNeural * 298;
+            const price = basicQtyForNeural * 300;
             licenseSubtotal += price;
             doc.text("Neural Tracker", 20, rowY);
             doc.text("NFINT-CAML", 70, rowY);
@@ -542,7 +542,7 @@ currentY = tableTop + tableHeight + 15;
         }
         // Face Row
         if (faceQty > 0) {
-            const price = faceQty * 878;
+            const price = faceQty * 900;
             licenseSubtotal += price;
             doc.text("Facial Recognition", 20, rowY);
             doc.text("NFINT-FRC1", 70, rowY);
@@ -554,7 +554,7 @@ currentY = tableTop + tableHeight + 15;
         }
         // LPR Row
         if (lprQty > 0) {
-            const price = lprQty * 1526;
+            const price = lprQty * 1600;
             licenseSubtotal += price;
             doc.text("LPR License", 20, rowY);
             doc.text("NFINT-LPVR", 70, rowY);
