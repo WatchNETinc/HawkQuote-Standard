@@ -120,7 +120,7 @@
 </div>
 
 <script>
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbzjBH2LlyI6G4QsEExpF6wgDzNcxVrJCTyJKYUM7A7ownb_ZZNrLn5LlJW7xyDRvBAN/exec";
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbzPZmxIr0CvgX7klb3-zHi_dvs37dFPavHRjHFJ6b9tzZmgGD2aPL2m2xWiJRquKOrf/exec";
     
 	let debounceTimer;
 	
@@ -139,7 +139,7 @@
     const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
     const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
     
-    // 1. Pricing Logic
+    // 1. Hardware Pricing Logic
     if (data.fixedModel) {
         hwFinal = data.serverBasePrice; 
     } else {
@@ -149,7 +149,11 @@
 
     const storageFinal = data.driveUnitPrice * state.disks;
 
-    // 2. Update displays
+    // 2. NEW: Update Licenses using the prices from your Google Sheet
+    // data.licNeural, data.licFace, and data.licLpr are keys from your Google Script
+    updateLicenseUIFromData(basicQty, faceQty, lprQty, data.licNeural, data.licFace, data.licLpr);
+
+    // 3. Update main price displays
     document.getElementById('hwPriceDisplay').innerText = "$" + hwFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById('storagePriceDisplay').innerText = "$" + storageFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
     
@@ -160,10 +164,9 @@
     
     updateLabels();
     
-    // 3. Status and Button Logic
+    // 4. Status and Button Logic
     document.getElementById('calcStatus').innerText = "Ready";
     
-    // Only enable button if there is at least 1 camera total
     if (basicQty > 0 || faceQty > 0 || lprQty > 0) {
         exportBtn.disabled = false;
     } else {
@@ -238,100 +241,110 @@ function fetchPrices() {
     }
 
     function calculateArchive() {
-        const modelDropdown = document.getElementById('modelSelect');
-        const basicQty = parseInt(document.getElementById('camQty').value) || 0;
-        document.getElementById('neuralCamQty').value = basicQty;
-        
-        const neuralQty = basicQty; 
-        const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
-        const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
-		const exportBtn = document.querySelector('.main-btn');
-		
-		// NEW LOGIC: If all camera inputs are 0, keep button disabled and stop
+    const modelDropdown = document.getElementById('modelSelect');
+    const basicQty = parseInt(document.getElementById('camQty').value) || 0;
+    document.getElementById('neuralCamQty').value = basicQty;
+    
+    const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
+    const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
+    const exportBtn = document.querySelector('.main-btn');
+    
     if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
         exportBtn.disabled = true;
         document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
-        
-        // Optional: Reset displays to zero
         document.getElementById('hwPriceDisplay').innerText = "$0.00";
         document.getElementById('storagePriceDisplay').innerText = "$0.00";
         if(document.getElementById('systemTotalPriceDisplay')) {
             document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
         }
-        return; // Stop the function here
+        document.getElementById('licenseBreakdown').style.display = 'none'; // Hide licenses if 0
+        return; 
     }
 
-        let selectedModel = "HAWK16";
-        if (basicQty > 16 && basicQty <= 32) selectedModel = "HAWK32";
-        else if (basicQty > 32) selectedModel = "HAWK64";
+    let selectedModel = "HAWK16";
+    if (basicQty > 16 && basicQty <= 32) selectedModel = "HAWK32";
+    else if (basicQty > 32) selectedModel = "HAWK64";
 
-        state.model = selectedModel;
-        modelDropdown.value = selectedModel;
-        updateStandardHardware();
+    state.model = selectedModel;
+    modelDropdown.value = selectedModel;
+    updateStandardHardware();
 
-        const totalArchiveTB = (basicQty * 711.92) / 1000;
-        const totalMetaGB = (neuralQty + faceQty + lprQty) * 37.90;
+    const totalArchiveTB = (basicQty * 711.92) / 1000;
+    const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
 
-        const requiredRawTB = totalArchiveTB * 2;
-        const availableSizes = [6, 8, 12, 22]; 
-        let selectedQty = 4, selectedSize = 6;
+    const requiredRawTB = totalArchiveTB * 2;
+    const availableSizes = [6, 8, 12, 22]; 
+    let selectedQty = 4, selectedSize = 6;
 
-        if (totalArchiveTB > 0) {
-            let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
-            let foundMatch = false;
-            for (let qty of driveCountOptions) {
-                let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
-                if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
-            }
-            if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
+    if (totalArchiveTB > 0) {
+        let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
+        let foundMatch = false;
+        for (let qty of driveCountOptions) {
+            let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
+            if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
         }
-
-        state.disks = selectedQty;
-        state.size = selectedSize;
-
-        document.getElementById('raidDisks').value = selectedQty;
-        document.getElementById('raidSize').value = selectedSize;
-        document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
-        document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
-
-        const metaContainer = document.getElementById('dispMeta');
-        if (totalMetaGB >= 1000) {
-            metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
-            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
-            metaContainer.nextSibling.textContent = " TB ";
-        } else {
-            metaContainer.innerText = totalMetaGB.toFixed(2);
-            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
-            metaContainer.nextSibling.textContent = " GB ";
-        }
-
-        updateLicenseUI(neuralQty, faceQty, lprQty);
-        calculate();
+        if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
     }
 
-    function updateLicenseUI(n, f, l) {
-        const licenseRows = document.getElementById('licenseRows');
-        let licenseHTML = "";
-        const items = [
-            { name: "IP Camera with Neural AI", part: "NFINT-CAML", price: 300, qty: n }, 
-            { name: "Facial Recognition", part: "NFINT-FRC1", price: 900, qty: f }, 
-            { name: "LPR License", part: "NFINT-LPVR", price: 1600, qty: l }
-        ];
-        let grandTotal = 0;
-        items.forEach(item => {
-            if (item.qty > 0) {
-                const rowTotal = item.qty * item.price; grandTotal += rowTotal;
-                licenseHTML += `<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 15px;">${item.name}</td><td style="color: #718096;">${item.part}</td><td style="text-align: right;">$${item.price}</td><td style="text-align: center;">${item.qty}</td><td style="padding: 10px 15px; text-align: right; font-weight: bold;">$${rowTotal.toLocaleString()}</td></tr>`;
-            }
-        });
-        if (grandTotal > 0) { 
-            document.getElementById('licenseBreakdown').style.display = 'block'; 
-            licenseRows.innerHTML = licenseHTML; 
-            document.getElementById('dispLicenseTotal').innerText = "$" + grandTotal.toLocaleString(); 
-        } else { 
-            document.getElementById('licenseBreakdown').style.display = 'none'; 
-        }
+    state.disks = selectedQty;
+    state.size = selectedSize;
+
+    document.getElementById('raidDisks').value = selectedQty;
+    document.getElementById('raidSize').value = selectedSize;
+    document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
+    document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
+
+    const metaContainer = document.getElementById('dispMeta');
+    if (totalMetaGB >= 1000) {
+        metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
+        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
+        metaContainer.nextSibling.textContent = " TB ";
+    } else {
+        metaContainer.innerText = totalMetaGB.toFixed(2);
+        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
+        metaContainer.nextSibling.textContent = " GB ";
     }
+
+    // THE FIX: We removed the old updateLicenseUI call and replaced it with calculate()
+    // calculate() calls fetchPrices(), which pings Google for the real prices.
+    calculate();
+}
+
+    function updateLicenseUIFromData(n, f, l, pNeural, pFace, pLpr) {
+    const licenseRows = document.getElementById('licenseRows');
+    const licenseBreakdown = document.getElementById('licenseBreakdown');
+    
+    const items = [
+        { name: "IP Camera with Neural AI", part: "NFINT-CAML", price: pNeural || 0, qty: n },
+        { name: "Facial Recognition", part: "NFINT-FRC1", price: pFace || 0, qty: f },
+        { name: "LPR License", part: "NFINT-LPVR", price: pLpr || 0, qty: l }
+    ];
+    
+    let html = "";
+    let grandTotal = 0;
+
+    items.forEach(item => {
+        if (item.qty > 0) {
+            const rowTotal = item.qty * item.price;
+            grandTotal += rowTotal;
+            html += `<tr style="border-bottom: 1px solid #edf2f7;">
+                <td style="padding: 10px 15px;">${item.name}</td>
+                <td style="color: #718096;">${item.part}</td>
+                <td style="text-align: right;">$${item.price.toLocaleString()}</td>
+                <td style="text-align: center;">${item.qty}</td>
+                <td style="padding: 10px 15px; text-align: right; font-weight: bold;">$${rowTotal.toLocaleString()}</td>
+            </tr>`;
+        }
+    });
+
+    if (grandTotal > 0) {
+        licenseBreakdown.style.display = 'block';
+        licenseRows.innerHTML = html;
+        document.getElementById('dispLicenseTotal').innerText = "$" + grandTotal.toLocaleString();
+    } else {
+        licenseBreakdown.style.display = 'none';
+    }
+}
 
     function updateStandardHardware() {
         const model = state.model;
