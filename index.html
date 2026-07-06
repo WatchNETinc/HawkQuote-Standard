@@ -91,28 +91,35 @@
     <div class="col-preview">
         <h2 style="margin-top:0;">Quote Breakdown</h2>
         <table class="summary-table">
-    <tr id="hardwareRow" style="display: none;">
-        <td id="prevSpec">$0.00</td>
-        <td id="hwPriceDisplay">$0.00</td>
-    </tr>
-    <tr id="storageRow" style="display: none;">
-        <td id="videoStorageLabel"></td>
-        <td id="storagePriceDisplay">$0.00</td>
-    </tr>
-    <tr style="background-color: #f8fafc;">
-        <td class="row-label" id="prevModel" style="width: 25%; font-weight: 900; font-size: 22px; background: #f7fafc; border-bottom: none; height: 100px;">Select Model</td>
-        
-        <td style="padding: 0; margin: 0; vertical-align: top; border-right: 2px solid #1a202c;">
-            <div id="prevSpecDisplay" style="font-size: 11px; text-align: left; padding: 15px; line-height: 1.5; color: #2d3748; min-height: 55px; border-bottom: 1px solid #1a202c;">
-                Please select a model...
-            </div>
-            <div id="videoStorageDisplayLabel" style="font-size: 11px; text-align: left; padding: 15px; color: #4a5568; font-weight: 600; background: #ffffff;">
-                Video Storage Hard Drives
-            </div>
+    <tr>
+        <td class="row-label" id="prevModel" rowspan="2" style="width: 25%; font-weight: 900; font-size: 22px; background: #f7fafc; border-bottom: 1px solid #1a202c; text-align: center; vertical-align: middle;">
+            Select Model
         </td>
-        
-        <td class="row-price" style="width: 25%; font-size: 20px; color: #2b6cb0; font-weight: 800; text-align: center; background: #f8fafc; padding: 20px;">
-            <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px;">TOTAL SYSTEM PRICE</div>
+        <td id="prevSpecDisplay" style="font-size: 11px; text-align: left; padding: 15px; line-height: 1.5; color: #2d3748; width: 50%; border-bottom: 1px solid #1a202c;">
+            Please select a model...
+        </td>
+        <td class="row-price" id="hwPriceCell" style="width: 25%; font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
+            <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Hardware Price</div>
+            <span id="hwPriceDisplay">$0.00</span>
+        </td>
+    </tr>
+
+    <tr id="storagePriceRow">
+        <td id="videoStorageDisplayLabel" style="font-size: 11px; text-align: left; padding: 15px; color: #4a5568; font-weight: 600; background: #ffffff; border-bottom: 1px solid #1a202c;">
+            Video Storage Hard Drives
+        </td>
+        <td class="row-price" id="storagePriceCell" style="font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
+            <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Storage Price</div>
+            <span id="storagePriceDisplay">$0.00</span>
+        </td>
+    </tr>
+
+    <tr style="background-color: #f8fafc;">
+        <td style="border-top: 1px solid #1a202c; background: #edf2f7; border-right: 2px solid #1a202c;"></td>
+        <td style="font-size: 12px; font-weight: bold; text-align: center; padding: 15px; color: #1a202c; text-transform: uppercase; letter-spacing: 0.5px;">
+            TOTAL SYSTEM PRICE:
+        </td>
+        <td class="row-price" style="font-size: 22px; color: #2b6cb0; font-weight: 900; text-align: center; padding: 15px; background: #f1f5f9;">
             <span id="systemTotalPriceDisplay">$0.00</span>
         </td>
     </tr>
@@ -148,6 +155,10 @@
         <div class="calc-result-box">
             <div class="calc-row"><span>Total video archive size</span><div class="calc-value"><span id="dispArchive">0.0</span> TB <span class="calc-sub">(HDD capacity <span id="dispArchiveMark">0.0</span> TB)</span></div></div>
             <div class="calc-row"><span>Dedicated SSD for metadata</span><div class="calc-value"><span id="dispMeta">0.0</span> GB <span class="calc-sub">(SSD capacity <span id="dispMetaMark">0.0</span> GB)</span></div></div>
+			
+			<div style="margin-top: 20px; font-size: 13px; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px; font-weight: normal; letter-spacing: 0.5px;">
+        ℹ️ Estimate archive recording is based on 30 days of 50 percent motion.
+    </div>
         </div>
     </div>
 </div>
@@ -500,39 +511,69 @@
     doc.text(`Quote expiration date: ${formattedExpiry}`, pageWidth / 2, 58, { align: "center" });
     doc.setTextColor(0);
 
-    // --- 4. MAIN QUOTE TABLE (UNIFIED COMBINED VERSION) ---
+    // --- 4. MAIN QUOTE TABLE (SEPARATED HARDWARE, STORAGE, & TOTAL ROWS) ---
     const tableTop = 65;
-    const tableHeight = 32; // Padding height to keep split rows stable
-    const midPoint = tableTop + (tableHeight / 2);
+    const tableHeight = 44; // Increased total height to fit all three distinct rows perfectly
+    const firstRowHeight = 16; 
+    const secondRowHeight = 14;
+    const thirdRowHeight = 14;
+    
+    const row2Top = tableTop + firstRowHeight; // 81
+    const row3Top = row2Top + secondRowHeight; // 95
 
+    // 1. Draw Outer Boundary Box Frame
     doc.setDrawColor(0).setLineWidth(0.5).rect(14, tableTop, 182, tableHeight); 
-    doc.line(65, tableTop, 65, tableTop + tableHeight);  
-    doc.line(155, tableTop, 155, tableTop + tableHeight); 
-    doc.line(65, tableTop + 21, 155, tableTop + 21); // Horizontal divider line matching the screen dashboard row layout
+    
+    // 2. Vertical Column Dividers
+    doc.line(65, tableTop, 65, tableTop + tableHeight);  // Split Model Column
+    doc.line(155, tableTop, 155, tableTop + tableHeight); // Pricing Matrix Column
 
-    // Left Column: Model Name Identifier
+    // 3. Horizontal Row Dividers
+    doc.line(65, row2Top, 196, row2Top); // Splits Hardware and Storage Rows
+    doc.line(14, row3Top, 196, row3Top); // Splits Storage and Total Rows (runs all the way across!)
+
+    // --- LEFT COLUMN: Unified Package Model Identifier ---
     doc.setFontSize(14).setFont("helvetica", "bold");
-    doc.text(model, 39.5, midPoint + 2, { align: "center" });
+    // Positioned dead-center across rows 1 and 2
+    doc.text(model, 39.5, row2Top + 1, { align: "center" });
 
-    // Center Column - Top Section: Wrapped Specifications Strings
+    // --- ROW 1: Server Hardware Details & Pricing ---
     doc.setFontSize(8).setFont("helvetica", "normal");
     const splitSpecs = doc.splitTextToSize(specs, 85); 
     
-    let specYOffset = tableTop + 5;
-    for (let i = 0; i < splitSpecs.length; i++) {
+    let specYOffset = tableTop + 4.5;
+    for (let i = 0; i < Math.min(splitSpecs.length, 3); i++) { 
         doc.text(splitSpecs[i], 69, specYOffset);
-        specYOffset += 4.5; // Controls vertical line gap pacing perfectly
+        specYOffset += 4; 
     }
 
-    // Center Column - Bottom Section: Video Storage Drives Label matching screen UI
-    doc.setFont("helvetica", "bold").text(drivesLabel, 69, tableTop + 26);
+    // Top Right Corner Box: Standalone Hardware Price
+    doc.setFontSize(6).setTextColor(100).setFont("helvetica", "normal");
+    doc.text("HARDWARE PRICE", 175.5, tableTop + 5, { align: "center" });
+    doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(0, 75, 99);
+    const currentHwPrice = document.getElementById('hwPriceDisplay') ? document.getElementById('hwPriceDisplay').innerText : "$0.00";
+    doc.text(currentHwPrice, 175.5, tableTop + 11, { align: "center" });
 
-    // Right Column: Clean Integrated Combined Pricing Box Block
-    doc.setFontSize(7).setTextColor(100).setFont("helvetica", "normal");
-    doc.text("TOTAL SYSTEM PRICE", 175.5, tableTop + 10, { align: "center" });
+    // --- ROW 2: Hard Drive Summary Details & Pricing ---
+    doc.setFontSize(8).setFont("helvetica", "bold").setTextColor(0);
+    doc.text(drivesLabel, 69, row2Top + 8);
+
+    // Middle Right Box: Standalone Storage Price
+    doc.setFontSize(6).setTextColor(100).setFont("helvetica", "normal");
+    doc.text("STORAGE PRICE", 175.5, row2Top + 5, { align: "center" });
+    doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(0, 75, 99);
+    const currentStoragePrice = document.getElementById('storagePriceDisplay') ? document.getElementById('storagePriceDisplay').innerText : "$0.00";
+    doc.text(currentStoragePrice, 175.5, row2Top + 11, { align: "center" });
+
+    // --- ROW 3: TOTAL SYSTEM PRICE ---
+    doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(0);
+    doc.text("TOTAL SYSTEM PRICE:", 69, row3Top + 9);
+
+    // Bottom Right Box: Combined System Final Total Sum
     doc.setFontSize(12).setFont("helvetica", "bold").setTextColor(0, 75, 99);
-    doc.text(combinedSystemPrice, 175.5, midPoint + 5, { align: "center" });
+    doc.text(combinedSystemPrice, 175.5, row3Top + 9, { align: "center" });
 
+    // Ensure the baseline tracker update coordinates drop lower down to prevent any element overlapping
     let currentY = tableTop + tableHeight + 10;
 
     // --- 3. NEW: Professional Software License Table ---
@@ -628,32 +669,36 @@
 
     currentY += 50;
 
-    // --- 5. Archive Calculations Box ---
-    doc.setFillColor(0, 75, 99).rect(14, currentY, 182, 45, 'F').setTextColor(255);
+// --- 5. Archive Calculations Box (Aligned Layout with Note) ---
+    doc.setFillColor(0, 75, 99).rect(14, currentY, 182, 52, 'F').setTextColor(255); // Solid block bounding box container
     
-    // Total video archive row (Usually TB)
+    // Total Video Archive Row Metrics
     doc.setFontSize(11).setFont("helvetica", "bold").text("Total video archive size", pageWidth / 2, currentY + 10, {align: "center"});
     doc.setFontSize(10).setFont("helvetica", "normal").text(`${document.getElementById('dispArchive').innerText} TB (HDD capacity ${document.getElementById('dispArchiveMark').innerText} TB)`, pageWidth / 2, currentY + 17, {align: "center"});
 
-    // --- DYNAMIC UNIT LOGIC STARTS HERE ---
-    // 1. Get the raw metadata value
+    // Dynamic Metadata Storage Unit Multipliers
     const metaValRaw = parseFloat(document.getElementById('calcMeta').value) || 0;
-    
-    // 2. Determine if we should say GB or TB
-    let metaUnit = "GB";
-    if (metaValRaw >= 1000) {
-        metaUnit = "TB";
-    }
-
-    // 3. Get the numbers currently displayed on the screen
+    let metaUnit = (metaValRaw >= 1000) ? "TB" : "GB";
     const dispMeta = document.getElementById('dispMeta').innerText;
     const dispMetaMark = document.getElementById('dispMetaMark').innerText;
 
-    // 4. Draw the Metadata row using the dynamic unit
-    doc.setFontSize(11).setFont("helvetica", "bold").text("Dedicated SSD for metadata and system log", pageWidth / 2, currentY + 28, {align: "center"});
-    
-    // We replaced "GB" with "${metaUnit}"
+    // Dedicated SSD Metadata Row Metrics
+    doc.setFontSize(11).setFont("helvetica", "bold").text("Dedicated SSD for metadata", pageWidth / 2, currentY + 28, {align: "center"});
     doc.setFontSize(10).setFont("helvetica", "normal").text(`${dispMeta} ${metaUnit} (SSD capacity ${dispMetaMark} ${metaUnit})`, pageWidth / 2, currentY + 35, {align: "center"});
+
+    // Thin inner horizontal section separator line rule mapping
+    doc.setDrawColor(255, 255, 255).setLineWidth(0.2);
+    // Draws a delicate 15% opacity white separation rule just like the web layout interface
+    doc.line(24, currentY + 41, 186, currentY + 41); 
+
+    // FIXED: Clean text rendering block matching your web app layout perfectly
+    doc.setFontSize(8.5).setFont("helvetica", "italic").setTextColor(240, 248, 255);
+    doc.text("Estimate archive recording is based on 30 days of 50 percent motion.", pageWidth / 2, currentY + 47, {align: "center"});
+
+    // Secure tracking bounds loop variables safely
+    currentY += 58;
+	
+
     // --- 6. Footer ---
     doc.setTextColor(0, 75, 99).setFontSize(8).setFont("helvetica", "bold");
     doc.text("351 Ferrier St Unit 5 • Markham, ON • L3R 5Z2", pageWidth / 2, 278, { align: "center" });
