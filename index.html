@@ -210,38 +210,49 @@
     let state = {
         model: "HAWK16",
         disks: 0,
-        size: 0
+        size: 0,
+		serverQty: 1
     };
 
     // --- THE CALLBACK: Processes payload calculations from Google Spreadsheet ---
     window.callback = function(data) {
-        let hwFinal = 0;
+        let hwSingle = 0;
         const exportBtn = document.querySelector('.main-btn'); 
         const basicQty = parseInt(document.getElementById('camQty').value) || 0;
         const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
         const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
         
-        // 1. Hardware Base Allocation Profile Match
-        if (data.fixedModel || state.model === "HAWK16" || state.model === "HAWK32" || state.model === "HAWK64") {
-            hwFinal = parseFloat(data.serverBasePrice) || 0; 
+        // 1. Single Unit Server Base Price ($12,200 for HAWK64)
+        const cleanModel = state.model.replace("2 x ", "").trim();
+        if (data.fixedModel || cleanModel.startsWith("HAWK")) {
+            hwSingle = parseFloat(data.serverBasePrice) || parseFloat(data.fixedModel) || 0; 
         } else {
             const markupFactor = parseFloat(data.markup) || 1.30;
-            hwFinal = (parseFloat(data.serverBasePrice) || 0) * markupFactor;
+            hwSingle = (parseFloat(data.serverBasePrice) || 0) * markupFactor;
         }
 
-        // 2. Storage Calculation Allocation Matrix
+        // Hardware Total = Unit Price ($12,200) * Server Qty (2) = $24,400.00
+        const hwFinal = hwSingle * (state.serverQty || 1);
+
+        // 2. Storage Price
         const driveUnitPrice = parseFloat(data.driveUnitPrice) || 0;
         const storageFinal = driveUnitPrice * state.disks;
 
         // 3. Map Dynamic Software Licensing Rows
         updateLicenseUIFromData(basicQty, faceQty, lprQty, data.licNeural, data.licFace, data.licLpr);
 
-        // 4. System Final Total Compilation
+        // 4. Combined Total ($24,400 + $5,600 = $30,000.00)
         const systemTotalCombined = hwFinal + storageFinal;
 
-        // FIXED: Dynamically inject true fetched pricing matrices instead of forcing $0.00 strings
+        // Subtitle rendering for multi-server quotes
+        const eachSubtitleHtml = (state.serverQty > 1) ? `
+            <div style="font-size: 11px; color: #718096; font-weight: normal; margin-top: 3px;">
+                ($${hwSingle.toLocaleString(undefined, {minimumFractionDigits: 2})} each)
+            </div>
+        ` : '';
+
         if (document.getElementById('hwPriceDisplay')) {
-            document.getElementById('hwPriceDisplay').innerText = "$" + hwFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('hwPriceDisplay').innerHTML = `$${hwFinal.toLocaleString(undefined, {minimumFractionDigits: 2})}${eachSubtitleHtml}`;
         }
         if (document.getElementById('storagePriceDisplay')) {
             document.getElementById('storagePriceDisplay').innerText = "$" + storageFinal.toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -272,22 +283,24 @@
         
         const requestId = ++currentRequestId;
         
-        // Build URL Parameter mappings cleanly with fallback defaults
+        // Strip out "2 x " so Google Sheets finds "HAWK64" ($12,200.00)
+        const cleanModelForSheet = state.model.replace("2 x ", "").trim();
+
+        // Build URL Parameter mappings
         const params = { 
-            model: state.model,
+            model: cleanModelForSheet, // <--- Sends "HAWK64"
             cpu: document.getElementById('cpu') ? (document.getElementById('cpu').innerText || "Intel Ultra 5") : "Intel Ultra 5", 
             ram: document.getElementById('ramSelect') ? (document.getElementById('ramSelect').innerText || "Memory (RAM) 16GB") : "Memory (RAM) 16GB", 
-            serverCase: (state.model === "HAWK8") ? "Tower" : "Chassis",
+            serverCase: (cleanModelForSheet === "HAWK8") ? "Tower" : "Chassis",
             bay: document.getElementById('bays') ? (document.getElementById('bays').innerText || "5 HDD Bay") : "5 HDD Bay", 
             raidCard: document.getElementById('raidCard') ? (document.getElementById('raidCard').innerText || "RAID Controller") : "RAID Controller",
             gpu: document.getElementById('gpu') ? (document.getElementById('gpu').innerText || "NVIDIA RTX2000ADA") : "NVIDIA RTX2000ADA",
             driveQty: state.disks, 
             driveSize: state.size, 
-            metadata: (state.model === "HAWK16" || state.model === "HAWK8") ? "1TB" : "2TB",
+            metadata: (cleanModelForSheet === "HAWK16" || cleanModelForSheet === "HAWK8") ? "1TB" : "2TB",
             callback: "callback_" + requestId 
         };
 
-        // Create temporary runtime listener object
         window["callback_" + requestId] = function(data) {
             if (requestId === currentRequestId) {
                 window.callback(data); 
@@ -326,81 +339,94 @@
     }
 
     function calculateArchive() {
-        const modelDropdown = document.getElementById('modelSelect');
-        const basicQty = parseInt(document.getElementById('camQty').value) || 0;
-        if (document.getElementById('neuralCamQty')) {
-            document.getElementById('neuralCamQty').value = basicQty;
-        }
-        
-        const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
-        const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
-        const exportBtn = document.querySelector('.main-btn');
-        
-        // Zero baseline validation check
-        if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
-            if (exportBtn) exportBtn.disabled = true;
-            document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
-            document.getElementById('hwPriceDisplay').innerText = "$0.00";
-            document.getElementById('storagePriceDisplay').innerText = "$0.00";
-            
-            if (document.getElementById('systemTotalPriceDisplay')) {
-                document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
-            }
-            
-            document.getElementById('prevSpecDisplay').innerText = "Please select a model...";
-            document.getElementById('videoStorageDisplayLabel').innerText = "Video Storage Hard Drives";
-            document.getElementById('licenseBreakdown').style.display = 'none'; 
-            return; 
-        }
-
-        // Automatic threshold step selector maps directly to Fixed_Pricing references
-        let selectedModel = "HAWK16";
-        if (basicQty > 16 && basicQty <= 32) selectedModel = "HAWK32";
-        else if (basicQty > 32) selectedModel = "HAWK64";
-
-        state.model = selectedModel;
-        if (modelDropdown) modelDropdown.value = selectedModel;
-        
-        updateStandardHardware();
-
-        const totalArchiveTB = (basicQty * 711.92) / 1000;
-        const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
-
-        const requiredRawTB = totalArchiveTB * 2;
-        const availableSizes = [6, 8, 12, 22]; 
-        let selectedQty = 4, selectedSize = 6;
-
-        if (totalArchiveTB > 0) {
-            let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
-            let foundMatch = false;
-            for (let qty of driveCountOptions) {
-                let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
-                if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
-            }
-            if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
-        }
-
-        state.disks = selectedQty;
-        state.size = selectedSize;
-
-        document.getElementById('raidDisks').value = selectedQty;
-        document.getElementById('raidSize').value = selectedSize;
-        document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
-        document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
-
-        const metaContainer = document.getElementById('dispMeta');
-        if (totalMetaGB >= 1000) {
-            metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
-            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
-            metaContainer.nextSibling.textContent = " TB ";
-        } else {
-            metaContainer.innerText = totalMetaGB.toFixed(2);
-            document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
-            metaContainer.nextSibling.textContent = " GB ";
-        }
-
-        calculate();
+    const modelDropdown = document.getElementById('modelSelect');
+    const basicQty = parseInt(document.getElementById('camQty').value) || 0;
+    if (document.getElementById('neuralCamQty')) {
+        document.getElementById('neuralCamQty').value = basicQty;
     }
+    
+    const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
+    const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
+    const exportBtn = document.querySelector('.main-btn');
+    
+    // Zero baseline validation check
+    if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
+        if (exportBtn) exportBtn.disabled = true;
+        document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
+        document.getElementById('hwPriceDisplay').innerText = "$0.00";
+        document.getElementById('storagePriceDisplay').innerText = "$0.00";
+        
+        if (document.getElementById('systemTotalPriceDisplay')) {
+            document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
+        }
+        
+        document.getElementById('prevSpecDisplay').innerText = "Please select a model...";
+        document.getElementById('videoStorageDisplayLabel').innerText = "Video Storage Hard Drives";
+        document.getElementById('licenseBreakdown').style.display = 'none'; 
+        return; 
+    }
+
+    // --- UPDATED MODEL SELECTION & MULTI-SERVER TRACKING ---
+    let selectedModel = "HAWK16";
+    state.serverQty = 1;
+
+    if (basicQty <= 16) {
+        selectedModel = "HAWK16";
+    } else if (basicQty <= 32) {
+        selectedModel = "HAWK32";
+    } else if (basicQty <= 64) {
+        selectedModel = "HAWK64";
+    } else if (basicQty <= 127) {
+        selectedModel = "HAWK64";
+        state.serverQty = 2;
+    } else {
+        selectedModel = "Custom Build";
+    }
+
+    // Displays "2 x HAWK64" when serverQty is 2
+    state.model = (state.serverQty === 2) ? "2 x HAWK64" : selectedModel;
+    if (modelDropdown) modelDropdown.value = selectedModel;
+    
+    updateStandardHardware();
+
+    const totalArchiveTB = (basicQty * 711.92) / 1000;
+    const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
+
+    const requiredRawTB = totalArchiveTB * 2;
+    const availableSizes = [6, 8, 12, 22]; 
+    let selectedQty = 4, selectedSize = 6;
+
+    if (totalArchiveTB > 0) {
+        let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
+        let foundMatch = false;
+        for (let qty of driveCountOptions) {
+            let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
+            if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
+        }
+        if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
+    }
+
+    state.disks = selectedQty;
+    state.size = selectedSize;
+
+    document.getElementById('raidDisks').value = selectedQty;
+    document.getElementById('raidSize').value = selectedSize;
+    document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
+    document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
+
+    const metaContainer = document.getElementById('dispMeta');
+    if (totalMetaGB >= 1000) {
+        metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
+        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
+        metaContainer.nextSibling.textContent = " TB ";
+    } else {
+        metaContainer.innerText = totalMetaGB.toFixed(2);
+        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
+        metaContainer.nextSibling.textContent = " GB ";
+    }
+
+    calculate();
+}
 
     function updateLicenseUIFromData(n, f, l, pNeural, pFace, pLpr) {
         const licenseRows = document.getElementById('licenseRows');
@@ -439,30 +465,30 @@
     }
 
     function updateStandardHardware() {
-        const model = state.model;
-        if (model === "HAWK16") { 
-            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
-            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
-            if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-            if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
-            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
-        }
-        else if (model === "HAWK32") { 
-            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 7"; 
-            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
-            if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-            if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
-            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
-        }
-        else if (model === "HAWK64") { 
-            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 9"; 
-            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; 
-            if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-            if (document.getElementById('bays')) document.getElementById('bays').innerText = "8 HDD Bay"; 
-            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
-        }
-        updateLabels();
+    const model = state.model;
+    if (model === "HAWK16") { 
+        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
+        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+        if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
+        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
     }
+    else if (model === "HAWK32") { 
+        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 7"; 
+        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+        if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
+        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+    }
+    else if (model === "HAWK64" || model === "2 x HAWK64") { 
+        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 9"; 
+        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; 
+        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+        if (document.getElementById('bays')) document.getElementById('bays').innerText = "8 HDD Bay"; 
+        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+    }
+    updateLabels();
+}
 
     function updateLabels() {
         const model = state.model;
@@ -589,8 +615,21 @@ const client = userClientInput ? `JSN - ${userClientInput}` : "JSN - Client";
     doc.setFontSize(6).setTextColor(100).setFont("helvetica", "normal");
     doc.text("HARDWARE PRICE", 175.5, tableTop + 5, { align: "center" });
     doc.setFontSize(10).setFont("helvetica", "bold").setTextColor(0, 75, 99);
-    const currentHwPrice = document.getElementById('hwPriceDisplay') ? document.getElementById('hwPriceDisplay').innerText : "$0.00";
-    doc.text(currentHwPrice, 175.5, tableTop + 11, { align: "center" });
+    
+    const hwPriceRawText = document.getElementById('hwPriceDisplay') ? document.getElementById('hwPriceDisplay').innerText : "$0.00";
+    const cleanHwPrice = hwPriceRawText.split('$')[1] ? '$' + hwPriceRawText.split('$')[1].split('\n')[0].trim() : hwPriceRawText;
+    doc.text(cleanHwPrice, 175.5, tableTop + 11, { align: "center" });
+
+    // Multi-server ($12,200.00 each) subtitle rendering on PDF
+    if (state.serverQty > 1) {
+        const rawHwNum = parseFloat(cleanHwPrice.replace(/[^0-9.-]+/g, "")) || 0;
+        const singleUnitPDF = rawHwNum / (state.serverQty || 1);
+        
+        doc.setFontSize(7.5)
+           .setFont("helvetica", "italic")
+           .setTextColor(112, 128, 144);
+        doc.text(`($${singleUnitPDF.toLocaleString(undefined, {minimumFractionDigits: 2})} each)`, 175.5, tableTop + 15.5, { align: "center" });
+    }
 
     // --- ROW 2: Hard Drive Summary Details & Pricing ---
     doc.setFontSize(8).setFont("helvetica", "bold").setTextColor(0);
@@ -749,6 +788,7 @@ const client = userClientInput ? `JSN - ${userClientInput}` : "JSN - Client";
 
     doc.save(`${client}_${poNumber}_Hawk_Quote.pdf`);
 }
+document.addEventListener('DOMContentLoaded', calculateArchive);
 </script>
 </body>
 </html>
