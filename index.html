@@ -65,7 +65,7 @@
     <div class="col-inputs">
         <div class="section-title">1. System Hardware</div>
         <div class="input-group">
-            <label>Client Name</label>
+            <label>Integrator Name</label>
             <!-- Flex wrapper aligns the permanent prefix and the text box side-by-side -->
             <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
                 <!-- Permanent, locked prefix field -->
@@ -73,7 +73,7 @@
                        style="width: 65px; height: 45px; background-color: #edf2f7; color: #718096; font-weight: 700; border: 2px solid #edf2f7; text-align: center; padding: 0; cursor: not-allowed; border-radius: 10px; box-sizing: border-box; flex-shrink: 0;">
                 
                 <!-- Active user entry field -->
-                <input type="text" id="clientName" placeholder="Client Name" style="flex-grow: 1; box-sizing: border-box;">
+                <input type="text" id="integratorName" placeholder="Integrator Name" style="flex-grow: 1; box-sizing: border-box;">
             </div>
         </div>
         <div class="input-group"><label>PO number</label><input type="text" id="poNumber" placeholder="PO Number" oninput="updateLabels()"></div>
@@ -526,8 +526,8 @@
         
         const doc = new myPDF();
     
-   const userClientInput = document.getElementById('clientName').value.trim();
-const client = userClientInput ? `JSN - ${userClientInput}` : "JSN - Client";
+   const userIntegratorInput = document.getElementById('integratorName').value.trim();
+const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN - Integrator";
         const poNumber = document.getElementById('poNumber').value || "PO Number";
         const model = document.getElementById('prevModel').innerText;
         const specs = document.getElementById('prevSpecDisplay').innerText;
@@ -567,7 +567,7 @@ const client = userClientInput ? `JSN - ${userClientInput}` : "JSN - Client";
 	
 
     doc.setFontSize(10).setFont("helvetica", "normal").setTextColor(0);
-    doc.text(`Client: ${client}`, pageWidth / 2, 35, { align: "center" });
+    doc.text(`Integrator: ${integrator}`, pageWidth / 2, 35, { align: "center" });
     doc.text(`PO Number: ${poNumber}`, pageWidth / 2, 41, { align: "center" }); 
     doc.text(`Date: ${formattedToday}`, pageWidth / 2, 47, { align: "center" });
     
@@ -786,7 +786,7 @@ const client = userClientInput ? `JSN - ${userClientInput}` : "JSN - Client";
     const disclaimer = "Quote Validity: This quotation is valid for 30 days from the date issued. Pricing is subject to change after expiration due to current market fluctuations.";
     doc.text(doc.splitTextToSize(disclaimer, 180), 14, 293);
 
-    doc.save(`${client}_${poNumber}_Hawk_Quote.pdf`);
+    doc.save(`${integrator}_${poNumber}_Hawk_Quote.pdf`);
 }
 document.addEventListener('DOMContentLoaded', calculateArchive);
 </script>
