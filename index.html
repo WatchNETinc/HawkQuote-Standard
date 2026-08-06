@@ -97,14 +97,31 @@
 
     <div class="col-inputs">
         <div class="section-title">2. RAID Calculator</div>
-        <div class="input-group"><label>Number of Disks</label><input type="number" id="raidDisks" value="0" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;"></div>
-        <div class="input-group"><label>Single Disk Size (TB)</label><input type="number" id="raidSize" value="0" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;"></div>
-        <div class="input-group">
-            <label>RAID Type</label>
-            <select id="raidType" onchange="calculate()">
-                <option value="0">RAID 0</option><option value="1">RAID 1</option><option value="5">RAID 5</option><option value="6">RAID 6</option><option value="10" selected>RAID 10</option>
-            </select>
-        </div>
+
+<div class="input-group">
+    <label>Number of Disks</label>
+    <input type="number" id="raidDisks" value="0" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+</div>
+
+<div class="input-group">
+    <label>Single Disk Size (TB)</label>
+    <!-- Interactive Dropdown for Drive Sizes -->
+    <select id="raidSize" onchange="onCustomDriveChange()">
+        <option value="4">4 TB</option>
+        <option value="6">6 TB</option>
+        <option value="8">8 TB</option>
+        <option value="10">10 TB</option>
+        <option value="12">12 TB</option>
+        <option value="16">16 TB</option>
+        <option value="22">22 TB</option>
+    </select>
+</div>
+
+<div class="input-group">
+    <label>RAID Type</label>
+    <!-- Locked Read-Only Input (No Arrow) -->
+    <input type="text" id="raidType" value="RAID 10" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+</div>
         <div class="section-title">3. Camera/Archive Calculator</div>
         <div class="input-group">
     <label>Basic Cameras</label>
@@ -322,21 +339,52 @@
     }
 
     function updateRAID() {
-        const n = parseInt(document.getElementById('raidDisks').value) || 0;
-        const s = parseFloat(document.getElementById('raidSize').value) || 0;
-        const type = document.getElementById('raidType').value;
-        let cap = 0; let fault = "";
-        
-        if (type === "0") { cap = n * s; fault = "None"; }
-        else if (type === "1") { cap = s; fault = (n-1) + " drive(s)"; }
-        else if (type === "5") { cap = (n > 2) ? (n-1)*s : 0; fault = "1 drive"; }
-        else if (type === "6") { cap = (n > 3) ? (n-2)*s : 0; fault = "2 drives"; }
-        else if (type === "10") { cap = (n >= 4) ? (n/2)*s : 0; fault = "1 drive/set"; }
-        
-        document.getElementById('raidCap').innerText = cap.toFixed(1) + " TB";
-        document.getElementById('raidLabelTop').innerText = "RAID " + type;
-        document.getElementById('raidFault').innerText = fault;
+    const n = parseInt(document.getElementById('raidDisks').value) || 0;
+    const s = parseFloat(document.getElementById('raidSize').value) || 0;
+    const requiredArchiveTB = parseFloat(document.getElementById('dispArchive').innerText) || 0;
+    
+    // RAID 10 Usable Capacity Math
+    const cap = (n >= 4) ? (n / 2) * s : 0;
+    const fault = (n >= 4) ? "1 drive/set" : "None";
+    
+    document.getElementById('raidCap').innerText = cap.toFixed(1) + " TB";
+    document.getElementById('raidLabelTop').innerText = "RAID 10";
+    document.getElementById('raidFault').innerText = fault;
+
+    // Red warning box trigger if usable capacity is lower than required archive
+    const raidBox = document.querySelector('.raid-result-box');
+    let warningMsg = document.getElementById('raidWarningText');
+
+    if (cap < requiredArchiveTB && requiredArchiveTB > 0) {
+        raidBox.style.borderColor = "#e53e3e";
+        raidBox.style.backgroundColor = "#fff5f5";
+        raidBox.style.color = "#c53030";
+
+        if (!warningMsg) {
+            warningMsg = document.createElement('div');
+            warningMsg.id = 'raidWarningText';
+            warningMsg.style.cssText = 'font-size: 12px; font-weight: bold; margin-top: 8px; color: #c53030;';
+            raidBox.appendChild(warningMsg);
+        }
+        warningMsg.innerText = `⚠️ Insufficient Storage: Usable capacity (${cap.toFixed(1)} TB) is less than required archive (${requiredArchiveTB.toFixed(1)} TB). Select a larger drive size!`;
+    } else {
+        raidBox.style.borderColor = "#38a169";
+        raidBox.style.backgroundColor = "#f0fff4";
+        raidBox.style.color = "#2f855a";
+        if (warningMsg) warningMsg.remove();
     }
+}
+
+// Dropdown change handler triggered when user picks a different HDD size
+function onCustomDriveChange() {
+    const selectedSize = parseFloat(document.getElementById('raidSize').value) || 0;
+    state.size = selectedSize;
+    
+    // Update display capacity marker
+    document.getElementById('dispArchiveMark').innerText = (state.disks * selectedSize).toFixed(1);
+    
+    calculate();
+}
 
     function calculateArchive() {
     const modelDropdown = document.getElementById('modelSelect');
@@ -366,7 +414,7 @@
         return; 
     }
 
-    // --- UPDATED MODEL SELECTION & MULTI-SERVER TRACKING ---
+    // --- MODEL SELECTION ---
     let selectedModel = "HAWK16";
     state.serverQty = 1;
 
@@ -383,36 +431,47 @@
         selectedModel = "Custom Build";
     }
 
-    // Displays "2 x HAWK64" when serverQty is 2
     state.model = (state.serverQty === 2) ? "2 x HAWK64" : selectedModel;
     if (modelDropdown) modelDropdown.value = selectedModel;
     
     updateStandardHardware();
 
+    // --- ARCHIVE & STORAGE ALLOCATION ---
     const totalArchiveTB = (basicQty * 711.92) / 1000;
     const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
 
-    const requiredRawTB = totalArchiveTB * 2;
-    const availableSizes = [6, 8, 12, 22]; 
-    let selectedQty = 4, selectedSize = 6;
-
+    const availableSizes = [4, 6, 8, 10, 12, 16, 22]; 
+    let selectedQty = (selectedModel === "HAWK64" || selectedModel === "2 x HAWK64") ? 8 : 4; 
+    
+    // Auto-calculate the minimum disk size needed for this camera count
+    let autoSize = 6;
     if (totalArchiveTB > 0) {
-        let driveCountOptions = (selectedModel === "HAWK64") ? [8, 6, 4] : [4];
         let foundMatch = false;
-        for (let qty of driveCountOptions) {
-            let bestSize = availableSizes.find(s => (s * qty) >= requiredRawTB);
-            if (bestSize) { selectedQty = qty; selectedSize = bestSize; foundMatch = true; break; }
+        for (let s of availableSizes) {
+            if ((s * (selectedQty / 2)) >= totalArchiveTB) {
+                autoSize = s;
+                foundMatch = true;
+                break;
+            }
         }
-        if (!foundMatch) { selectedQty = (selectedModel === "HAWK64") ? 8 : 4; selectedSize = 22; }
+        if (!foundMatch) autoSize = 22;
     }
 
+    const raidSizeElement = document.getElementById('raidSize');
+    
+    // If the input was re-initialized, set dropdown to optimal autoSize
+    if (document.activeElement.id === 'camQty' || document.activeElement.id === 'faceCamQty' || document.activeElement.id === 'lprCamQty') {
+        raidSizeElement.value = autoSize;
+    }
+
+    const currentSelectedSize = parseFloat(raidSizeElement.value) || autoSize;
+
     state.disks = selectedQty;
-    state.size = selectedSize;
+    state.size = currentSelectedSize;
 
     document.getElementById('raidDisks').value = selectedQty;
-    document.getElementById('raidSize').value = selectedSize;
     document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
-    document.getElementById('dispArchiveMark').innerText = (selectedQty * selectedSize).toFixed(1);
+    document.getElementById('dispArchiveMark').innerText = (selectedQty * currentSelectedSize).toFixed(1);
 
     const metaContainer = document.getElementById('dispMeta');
     if (totalMetaGB >= 1000) {
@@ -537,7 +596,7 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
         const n = parseInt(document.getElementById('raidDisks').value) || 0;
         const s = parseFloat(document.getElementById('raidSize').value) || 0;
         const rawCap = (n * s).toFixed(1); 
-        const raidTypeLabel = document.getElementById('raidType').options[document.getElementById('raidType').selectedIndex].text;
+		const raidTypeLabel = "RAID 10"
         const pageWidth = doc.internal.pageSize.getWidth();
 	
 	
@@ -653,8 +712,7 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
     // Ensure the baseline tracker update coordinates drop lower down to prevent any element overlapping
     let currentY = tableTop + tableHeight + 10;
 
-    // --- 3. NEW: Professional Software License Table ---
-    // Pulling QTY from Basic Camera for Neural Tracker display as requested
+    // --- 3. Professional Software License Table ---
     const basicQtyForNeural = parseInt(document.getElementById('camQty').value) || 0;
     const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
     const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
@@ -735,26 +793,56 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
         currentY += licenseBoxHeight + 10;
     }
 
-     // --- 4. RAID Summary Box ---
-    doc.setDrawColor(40, 167, 69).setLineWidth(0.5);
-    doc.rect(14, currentY, 182, 40);
-    doc.setTextColor(30, 126, 52).setFontSize(11).setFont("helvetica", "bold").text("RAID CONFIGURATION SUMMARY", 20, currentY + 8);
-    doc.setTextColor(0).setFontSize(10).setFont("helvetica", "normal");
-    doc.text(`Configuration: ${raidTypeLabel} | RAW: ${rawCap} TB`, 20, currentY + 18);
-    doc.text(`Usable Capacity: ${document.getElementById('raidCap').innerText}`, 20, currentY + 26);
-    doc.text(`Fault Tolerance: ${document.getElementById('raidFault').innerText}`, 20, currentY + 34);
+    // --- 4. DYNAMIC RAID SUMMARY BOX (GREEN VALID VS RED WARNING) ---
+    const usableCapVal = parseFloat(document.getElementById('raidCap').innerText) || 0;
+    const requiredArchiveVal = parseFloat(document.getElementById('dispArchive').innerText) || 0;
+    const isDeficit = (usableCapVal < requiredArchiveVal) && (requiredArchiveVal > 0);
 
-    currentY += 50;
+    // Expand height dynamically to accommodate wrapped warning text
+    const raidBoxHeight = isDeficit ? 46 : 38; 
 
-// --- 5. Archive Calculations Box (Aligned Layout with Note) ---
-    doc.setFillColor(0, 75, 99).rect(14, currentY, 182, 52, 'F').setTextColor(255); // Solid block bounding box container
+    if (isDeficit) {
+        // Red Warning Container
+        doc.setDrawColor(229, 62, 62).setLineWidth(0.5).setFillColor(255, 245, 245);
+        doc.rect(14, currentY, 182, raidBoxHeight, 'FD');
+
+        doc.setTextColor(197, 48, 48).setFontSize(11).setFont("helvetica", "bold");
+        doc.text("RAID SUMMARY: RAID 10 (STORAGE WARNING)", 20, currentY + 8);
+
+        doc.setTextColor(0).setFontSize(9.5).setFont("helvetica", "normal");
+        doc.text(`Configuration: ${raidTypeLabel} | RAW: ${rawCap} TB`, 20, currentY + 17);
+        doc.text(`Usable Capacity: ${document.getElementById('raidCap').innerText} | Fault Tolerance: ${document.getElementById('raidFault').innerText}`, 20, currentY + 25);
+
+        // Clean text string (No Unicode Emoji) + Split text to fit 170px width cleanly
+        doc.setTextColor(197, 48, 48).setFontSize(8).setFont("helvetica", "bold");
+        const warningMsg = `WARNING: Insufficient Storage! Usable capacity (${usableCapVal.toFixed(1)} TB) is less than required archive (${requiredArchiveVal.toFixed(2)} TB). Please select a larger drive size!`;
+        
+        const splitWarning = doc.splitTextToSize(warningMsg, 170);
+        doc.text(splitWarning, 20, currentY + 33);
+    } else {
+        // Normal Green Container
+        doc.setDrawColor(56, 161, 105).setLineWidth(0.5).setFillColor(240, 255, 244);
+        doc.rect(14, currentY, 182, raidBoxHeight, 'FD');
+
+        doc.setTextColor(47, 133, 90).setFontSize(11).setFont("helvetica", "bold");
+        doc.text("RAID CONFIGURATION SUMMARY", 20, currentY + 8);
+
+        doc.setTextColor(0).setFontSize(9.5).setFont("helvetica", "normal");
+        doc.text(`Configuration: ${raidTypeLabel} | RAW: ${rawCap} TB`, 20, currentY + 18);
+        doc.text(`Usable Capacity: ${document.getElementById('raidCap').innerText} | Fault Tolerance: ${document.getElementById('raidFault').innerText}`, 20, currentY + 27);
+    }
+
+    currentY += raidBoxHeight + 10;
+
+    // --- 5. Archive Calculations Box (Aligned Layout with Note) ---
+    doc.setFillColor(0, 75, 99).rect(14, currentY, 182, 52, 'F').setTextColor(255); 
     
     // Total Video Archive Row Metrics
     doc.setFontSize(11).setFont("helvetica", "bold").text("Total video archive size", pageWidth / 2, currentY + 10, {align: "center"});
     doc.setFontSize(10).setFont("helvetica", "normal").text(`${document.getElementById('dispArchive').innerText} TB (HDD capacity ${document.getElementById('dispArchiveMark').innerText} TB)`, pageWidth / 2, currentY + 17, {align: "center"});
 
     // Dynamic Metadata Storage Unit Multipliers
-    const metaValRaw = parseFloat(document.getElementById('calcMeta').value) || 0;
+    const metaValRaw = parseFloat(document.getElementById('calcMeta') ? document.getElementById('calcMeta').value : 0) || 0;
     let metaUnit = (metaValRaw >= 1000) ? "TB" : "GB";
     const dispMeta = document.getElementById('dispMeta').innerText;
     const dispMetaMark = document.getElementById('dispMetaMark').innerText;
@@ -765,16 +853,12 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
 
     // Thin inner horizontal section separator line rule mapping
     doc.setDrawColor(255, 255, 255).setLineWidth(0.2);
-    // Draws a delicate 15% opacity white separation rule just like the web layout interface
     doc.line(24, currentY + 41, 186, currentY + 41); 
 
-    // FIXED: Clean text rendering block matching your web app layout perfectly
     doc.setFontSize(8.5).setFont("helvetica", "italic").setTextColor(240, 248, 255);
     doc.text("Estimate archive recording is based on 30 days of 50 percent motion.", pageWidth / 2, currentY + 47, {align: "center"});
 
-    // Secure tracking bounds loop variables safely
     currentY += 58;
-	
 
     // --- 6. Footer ---
     doc.setTextColor(0, 75, 99).setFontSize(8).setFont("helvetica", "bold");
