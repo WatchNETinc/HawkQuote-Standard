@@ -26,200 +26,203 @@
         .calc-value { font-size: 22px; font-weight: 800; }
         .calc-sub { font-size: 14px; opacity: 0.9; font-weight: 400; }
         button.main-btn:disabled { background: #a0aec0; cursor: not-allowed; opacity: 0.7; }
-        .static-val { width: 100%; height: 45px; padding: 12px 15px; border: 2px solid #edf2f7; border-radius: 10px; box-sizing: border-box; font-size: 14px; background-color: #edf2f7; color: #4a5568; font-weight: 6
-		
-		.prefix-wrapper {
-    position: relative;
-    display: block;
-    width: 100%;
-}
-
-/* Stylized non-editable gray text layer overlay */
-.prefix-wrapper::before {
-    content: "JSN - ";
-    position: absolute;
-    left: 15px; /* Aligns with input padding area */
-    top: 50%;
-    transform: translateY(-50%);
-    color: #a0aec0; /* Slate gray styling footprint */
-    font-weight: 600;
-    font-size: 14px;
-    pointer-events: none; /* Let clicks pass right through to the input box underneath */
-    z-index: 10;
-}
-
-/* Indent the text cursor padding area so user inputs start after the gray text */
-.prefix-wrapper input {
-    padding-left: 55px !important; /* Pushes typing space past 'JSN - ' text */
-    box-sizing: border-box;
-}
+        .static-val { width: 100%; height: 45px; padding: 12px 15px; border: 2px solid #edf2f7; border-radius: 10px; box-sizing: border-box; font-size: 14px; background-color: #edf2f7; color: #4a5568; font-weight: 600; }
     </style>
 </head>
 <body>
 <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-<h1 style="text-align: center; color: #2b6cb0; font-weight: 800; margin-bottom: 30px; font-size: 28px; text-transform: uppercase; letter-spacing: 1px;">
+    <h1 style="text-align: center; color: #2b6cb0; font-weight: 800; margin-bottom: 30px; font-size: 28px; text-transform: uppercase; letter-spacing: 1px;">
         Hawk Server Calculator - JSN
     </h1>
 	
-<div class="main-wrapper">
-    <div class="col-inputs">
-        <div class="section-title">1. System Hardware</div>
-        <div class="input-group">
-            <label>Integrator Name</label>
-            <!-- Flex wrapper aligns the permanent prefix and the text box side-by-side -->
-            <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
-                <!-- Permanent, locked prefix field -->
-                <input type="text" value="JSN -" readonly tabindex="-1" 
-                       style="width: 65px; height: 45px; background-color: #edf2f7; color: #718096; font-weight: 700; border: 2px solid #edf2f7; text-align: center; padding: 0; cursor: not-allowed; border-radius: 10px; box-sizing: border-box; flex-shrink: 0;">
+    <div class="main-wrapper">
+        <!-- SECTION 1: System Hardware -->
+        <div class="col-inputs">
+            <div class="section-title">1. System Hardware</div>
+            
+            <div class="input-group">
+                <label>Integrator Name</label>
+                <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
+                    <input type="text" value="JSN -" readonly tabindex="-1" 
+                           style="width: 65px; height: 45px; background-color: #edf2f7; color: #718096; font-weight: 700; border: 2px solid #edf2f7; text-align: center; padding: 0; cursor: not-allowed; border-radius: 10px; box-sizing: border-box; flex-shrink: 0;">
+                    <input type="text" id="integratorName" placeholder="Integrator Name" style="flex-grow: 1; box-sizing: border-box;">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>PO number</label>
+                <input type="text" id="poNumber" placeholder="PO Number" oninput="updateLabels()">
+            </div>
+
+            <div class="input-group">
+                <label>MODEL SERIES</label>
+                <select id="modelSelect" onchange="onCustomModelChange()" disabled style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+                    <option value="" selected disabled>-- Select Model --</option>
+                    <option value="HAWK8 (Tower)">HAWK8 (Tower)</option>
+                    <option value="HAWK8 (Server)">HAWK8 (Server)</option>
+                    <option value="HAWK16">HAWK16</option>
+                    <option value="HAWK32">HAWK32</option>
+                    <option value="HAWK64">HAWK64</option>
+                </select>
+            </div>
+
+            <div class="input-group"><label>Processor (CPU)</label><div id="cpu" class="static-val"></div></div>
+            <div class="input-group"><label>Memory (RAM)</label><div id="ramSelect" class="static-val"></div></div>
+            <div class="input-group"><label>RAID Controller</label><div id="raidCard" class="static-val"></div></div>
+            <div class="input-group"><label>Drive Bays</label><div id="bays" class="static-val"></div></div>
+            <div class="input-group"><label>GPU</label><div id="gpu" class="static-val"></div></div>
+
+            <button class="main-btn" onclick="downloadPDF()" disabled>Export Full Quote</button>
+            <span id="calcStatus" style="font-size:11px; color:#a0aec0; display:block; text-align:center; margin-top:10px;">Standby</span>
+        </div>
+
+        <!-- SECTION 2 & 3 -->
+        <div class="col-inputs">
+            <div id="hawk8Disclaimer" style="display: none; background-color: #fffaf0; border: 1px solid #fbd38d; color: #c05621; padding: 12px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-bottom: 15px; line-height: 1.4;">
+                ⚠️ Please note that HAWK8 (Tower) does not support RAID 10 and hot-swap.
+            </div>
+
+            <div class="section-title">2. RAID Calculator</div>
+
+            <div class="input-group">
+                <label>Number of Disks</label>
+                <select id="raidDisks" onchange="onCustomDiskQtyChange()" disabled style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+                    <option value="" selected disabled>-- Select Disks --</option>
+                    <option value="1">1 Disk</option>
+                    <option value="2">2 Disks</option>
+                    <option value="3">3 Disks</option>
+                    <option value="4">4 Disks</option>
+                    <option value="5">5 Disks</option>
+                    <option value="6">6 Disks</option>
+                    <option value="8">8 Disks</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Single Disk Size (TB)</label>
+                <select id="raidSize" onchange="onCustomDriveChange()" disabled style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+                    <option value="" selected disabled>-- Select Size --</option>
+                    <option value="4">4 TB</option>
+                    <option value="6">6 TB</option>
+                    <option value="8">8 TB</option>
+                    <option value="10">10 TB</option>
+                    <option value="12">12 TB</option>
+                    <option value="16">16 TB</option>
+                    <option value="22">22 TB</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>RAID Type</label>
+                <select id="raidType" onchange="onRaidTypeChange()" disabled style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
+                    <option value="" selected disabled>-- Select RAID Type --</option>
+                    <option value="N/A">N/A</option>
+                    <option value="RAID 10">RAID 10</option>
+                </select>
+            </div>
+
+            <div class="section-title">3. Camera/Archive Calculator</div>
+
+            <div class="input-group">
+                <label>Basic Cameras</label>
+                <input type="number" id="camQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
+            </div>
+            <div class="input-group">
+                <label>Neural Tracker Cameras</label>
+                <input type="number" id="neuralCamQty" value="0" disabled style="background-color: #f7fafc; cursor: not-allowed;">
+            </div>
+            <div class="input-group">
+                <label>Facial Recognition Cameras</label>
+                <input type="number" id="faceCamQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
+            </div>
+            <div class="input-group">
+                <label>LPR Cameras</label>
+                <input type="number" id="lprCamQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
+            </div>
+            <input type="hidden" id="calcArchive">
+            <input type="hidden" id="calcMeta">
+        </div>
+
+        <!-- PREVIEW SECTION -->
+        <div class="col-preview">
+            <h2 style="margin-top:0;">Quote Breakdown</h2>
+            <table class="summary-table">
+                <tr>
+                    <td class="row-label" id="prevModel" rowspan="2" style="width: 25%; font-weight: 900; font-size: 22px; background: #f7fafc; border-bottom: 1px solid #1a202c; text-align: center; vertical-align: middle;">
+                        Select Model
+                    </td>
+                    <td id="prevSpecDisplay" style="font-size: 11px; text-align: left; padding: 15px; line-height: 1.5; color: #2d3748; width: 50%; border-bottom: 1px solid #1a202c;">
+                        Please select a model...
+                    </td>
+                    <td class="row-price" id="hwPriceCell" style="width: 25%; font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
+                        <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Hardware Price</div>
+                        <span id="hwPriceDisplay">$0.00</span>
+                    </td>
+                </tr>
+
+                <tr id="storagePriceRow">
+                    <td id="videoStorageDisplayLabel" style="font-size: 11px; text-align: left; padding: 15px; color: #4a5568; font-weight: 600; background: #ffffff; border-bottom: 1px solid #1a202c;">
+                        Video Storage Hard Drives
+                    </td>
+                    <td class="row-price" id="storagePriceCell" style="width: 25%; font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
+                        <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Storage Price</div>
+                        <span id="storagePriceDisplay">$0.00</span>
+                    </td>
+                </tr>
+
+                <tr style="background-color: #f8fafc;">
+                    <td style="border-top: 1px solid #1a202c; background: #edf2f7; border-right: 2px solid #1a202c;"></td>
+                    <td style="font-size: 12px; font-weight: bold; text-align: center; padding: 15px; color: #1a202c; text-transform: uppercase; letter-spacing: 0.5px;">
+                        TOTAL SYSTEM PRICE:
+                    </td>
+                    <td class="row-price" style="font-size: 22px; color: #2b6cb0; font-weight: 900; text-align: center; padding: 15px; background: #f1f5f9;">
+                        <span id="systemTotalPriceDisplay">$0.00</span>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="raid-result-box">
+    <div style="font-weight:bold;" id="raidLabelTop">RAID 10 Summary</div>
+    <div style="font-size:14px;">Usable Capacity: <span id="raidCap" style="font-weight:bold;">0.0 TB</span> | Fault Tolerance: <span id="raidFault" style="font-weight:bold;">0 drive</span></div>
+</div>
+
+            <div id="licenseBreakdown" style="margin-top: 20px; display: none; border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <div style="background: #edf2f7; padding: 12px 15px; font-weight: bold; color: #2d3748; border-bottom: 1px solid #cbd5e0; font-size: 14px;">NetFlow Software Licenses</div>
+                <table style="width: 100%; border-collapse: collapse; background: white; table-layout: fixed;">
+                    <thead>
+                        <tr style="background: #ffffff; border-bottom: 1px solid #edf2f7;">
+                            <th style="padding: 10px 15px; text-align: left; font-size: 10px; color: #718096; width: 35%;">DESCRIPTION</th>
+                            <th style="padding: 10px 15px; text-align: left; font-size: 10px; color: #718096; width: 20%;">PART #</th>
+                            <th style="padding: 10px 15px; text-align: right; font-size: 10px; color: #718096; width: 15%;">UNIT PRICE</th>
+                            <th style="padding: 10px 15px; text-align: center; font-size: 10px; color: #718096; width: 10%;">QTY</th>
+                            <th style="padding: 10px 15px; text-align: right; font-size: 10px; color: #718096; width: 20%;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="licenseRows" style="font-size: 13px; color: #2d3748;">
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f7fafc; border-top: 2px solid #cbd5e0; font-weight: bold;">
+                            <td colspan="4" style="padding: 12px 15px; text-align: right; font-size: 14px;">License Total:</td>
+                            <td id="dispLicenseTotal" style="padding: 12px 15px; text-align: right; color: #2b6cb0; font-size: 16px;">$0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="calc-result-box">
+                <div class="calc-row"><span>Total video archive size</span><div class="calc-value"><span id="dispArchive">0.0</span> TB <span class="calc-sub">(HDD capacity <span id="dispArchiveMark">0.0</span> TB)</span></div></div>
+                <div class="calc-row"><span>Dedicated SSD for metadata</span><div class="calc-value"><span id="dispMeta">0.0</span> GB <span class="calc-sub">(SSD capacity <span id="dispMetaMark">0.0</span> GB)</span></div></div>
                 
-                <!-- Active user entry field -->
-                <input type="text" id="integratorName" placeholder="Integrator Name" style="flex-grow: 1; box-sizing: border-box;">
+                <div style="margin-top: 20px; font-size: 13px; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px; font-weight: normal; letter-spacing: 0.5px;">
+                    ℹ️ Estimate archive recording is based on 30 days of 50 percent motion.
+                </div>
             </div>
         </div>
-        <div class="input-group"><label>PO number</label><input type="text" id="poNumber" placeholder="PO Number" oninput="updateLabels()"></div>
-        <div class="input-group">
-            <label>Model Series</label>
-            <select id="modelSelect" onchange="updateStandardHardware()" disabled style="background-color: #edf2f7; cursor: not-allowed;">
-                <option value="" disabled selected>-- Auto-Selected --</option>
-                <option value="HAWK16">HAWK16</option>
-                <option value="HAWK32">HAWK32</option>
-                <option value="HAWK64">HAWK64</option>
-            </select>
-        </div>
-        <div class="input-group"><label>Processor (CPU)</label><div id="cpu" class="static-val"></div></div>
-        <div class="input-group"><label>Memory (RAM)</label><div id="ramSelect" class="static-val"></div></div>
-        <div class="input-group"><label>RAID Controller</label><div id="raidCard" class="static-val"></div></div>
-        <div class="input-group"><label>Drive Bays</label><div id="bays" class="static-val"></div></div>
-        <div class="input-group"><label>GPU</label><div id="gpu" class="static-val"></div></div>
-        <button class="main-btn" onclick="downloadPDF()" disabled>Export Full Quote</button>
-        <span id="calcStatus" style="font-size:11px; color:#a0aec0; display:block; text-align:center; margin-top:10px;">Standby</span>
-    </div>
-
-    <div class="col-inputs">
-        <div class="section-title">2. RAID Calculator</div>
-
-<div class="input-group">
-    <label>Number of Disks</label>
-    <input type="number" id="raidDisks" value="0" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
-</div>
-
-<div class="input-group">
-    <label>Single Disk Size (TB)</label>
-    <!-- Interactive Dropdown for Drive Sizes -->
-    <select id="raidSize" onchange="onCustomDriveChange()">
-        <option value="4">4 TB</option>
-        <option value="6">6 TB</option>
-        <option value="8">8 TB</option>
-        <option value="10">10 TB</option>
-        <option value="12">12 TB</option>
-        <option value="16">16 TB</option>
-        <option value="22">22 TB</option>
-    </select>
-</div>
-
-<div class="input-group">
-    <label>RAID Type</label>
-    <!-- Locked Read-Only Input (No Arrow) -->
-    <input type="text" id="raidType" value="RAID 10" readonly style="background-color: #edf2f7; color: #4a5568; cursor: not-allowed;">
-</div>
-        <div class="section-title">3. Camera/Archive Calculator</div>
-        <div class="input-group">
-    <label>Basic Cameras</label>
-    <input type="number" id="camQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
-</div>
-<div class="input-group">
-    <label>Neural Tracker Cameras</label>
-    <input type="number" id="neuralCamQty" value="0" disabled style="background-color: #f7fafc; cursor: not-allowed;">
-</div>
-<div class="input-group">
-    <label>Facial Recognition Cameras</label>
-    <input type="number" id="faceCamQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
-</div>
-<div class="input-group">
-    <label>LPR Cameras</label>
-    <input type="number" id="lprCamQty" value="0" min="0" oninput="calculateArchive()" onfocus="if(this.value=='0') this.value='';" onblur="if(this.value=='') this.value='0';">
-</div>
-        <input type="hidden" id="calcArchive"><input type="hidden" id="calcMeta">
-    </div>
-
-    <div class="col-preview">
-        <h2 style="margin-top:0;">Quote Breakdown</h2>
-        <table class="summary-table">
-    <tr>
-        <td class="row-label" id="prevModel" rowspan="2" style="width: 25%; font-weight: 900; font-size: 22px; background: #f7fafc; border-bottom: 1px solid #1a202c; text-align: center; vertical-align: middle;">
-            Select Model
-        </td>
-        <td id="prevSpecDisplay" style="font-size: 11px; text-align: left; padding: 15px; line-height: 1.5; color: #2d3748; width: 50%; border-bottom: 1px solid #1a202c;">
-            Please select a model...
-        </td>
-        <td class="row-price" id="hwPriceCell" style="width: 25%; font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
-            <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Hardware Price</div>
-            <span id="hwPriceDisplay">$0.00</span>
-        </td>
-    </tr>
-
-    <tr id="storagePriceRow">
-        <td id="videoStorageDisplayLabel" style="font-size: 11px; text-align: left; padding: 15px; color: #4a5568; font-weight: 600; background: #ffffff; border-bottom: 1px solid #1a202c;">
-            Video Storage Hard Drives
-        </td>
-        <td class="row-price" id="storagePriceCell" style="font-size: 18px; color: #2b6cb0; font-weight: 800; text-align: center; border-bottom: 1px solid #1a202c; padding: 10px;">
-            <div style="font-size: 10px; color: #718096; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Storage Price</div>
-            <span id="storagePriceDisplay">$0.00</span>
-        </td>
-    </tr>
-
-    <tr style="background-color: #f8fafc;">
-        <td style="border-top: 1px solid #1a202c; background: #edf2f7; border-right: 2px solid #1a202c;"></td>
-        <td style="font-size: 12px; font-weight: bold; text-align: center; padding: 15px; color: #1a202c; text-transform: uppercase; letter-spacing: 0.5px;">
-            TOTAL SYSTEM PRICE:
-        </td>
-        <td class="row-price" style="font-size: 22px; color: #2b6cb0; font-weight: 900; text-align: center; padding: 15px; background: #f1f5f9;">
-            <span id="systemTotalPriceDisplay">$0.00</span>
-        </td>
-    </tr>
-</table>
-
-
-        <div class="raid-result-box">
-            <div style="font-weight:bold;">RAID Summary: <span id="raidLabelTop">RAID 10</span></div>
-            <div style="font-size:14px;">Usable Capacity: <span id="raidCap" style="font-weight:bold;">0.0 TB</span> | Fault Tolerance: <span id="raidFault" style="font-weight:bold;">0 drive</span></div>
-        </div>
-        <div id="licenseBreakdown" style="margin-top: 20px; display: none; border: 1px solid #cbd5e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-    <div style="background: #edf2f7; padding: 12px 15px; font-weight: bold; color: #2d3748; border-bottom: 1px solid #cbd5e0; font-size: 14px;">NetFlow Software Licenses</div>
-    <table style="width: 100%; border-collapse: collapse; background: white; table-layout: fixed;">
-        <thead>
-            <tr style="background: #ffffff; border-bottom: 1px solid #edf2f7;">
-                <th style="padding: 10px 15px; text-align: left; font-size: 10px; color: #718096; width: 35%;">DESCRIPTION</th>
-                <th style="padding: 10px 15px; text-align: left; font-size: 10px; color: #718096; width: 20%;">PART #</th>
-                <th style="padding: 10px 15px; text-align: right; font-size: 10px; color: #718096; width: 15%;">UNIT PRICE</th>
-                <th style="padding: 10px 15px; text-align: center; font-size: 10px; color: #718096; width: 10%;">QTY</th>
-                <th style="padding: 10px 15px; text-align: right; font-size: 10px; color: #718096; width: 20%;">TOTAL</th>
-            </tr>
-        </thead>
-        <tbody id="licenseRows" style="font-size: 13px; color: #2d3748;">
-            </tbody>
-        <tfoot>
-            <tr style="background: #f7fafc; border-top: 2px solid #cbd5e0; font-weight: bold;">
-                <td colspan="4" style="padding: 12px 15px; text-align: right; font-size: 14px;">License Total:</td>
-                <td id="dispLicenseTotal" style="padding: 12px 15px; text-align: right; color: #2b6cb0; font-size: 16px;">$0.00</td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
-        <div class="calc-result-box">
-            <div class="calc-row"><span>Total video archive size</span><div class="calc-value"><span id="dispArchive">0.0</span> TB <span class="calc-sub">(HDD capacity <span id="dispArchiveMark">0.0</span> TB)</span></div></div>
-            <div class="calc-row"><span>Dedicated SSD for metadata</span><div class="calc-value"><span id="dispMeta">0.0</span> GB <span class="calc-sub">(SSD capacity <span id="dispMetaMark">0.0</span> GB)</span></div></div>
-			
-			<div style="margin-top: 20px; font-size: 13px; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 12px; font-weight: normal; letter-spacing: 0.5px;">
-        ℹ️ Estimate archive recording is based on 30 days of 50 percent motion.
-    </div>
-        </div>
     </div>
 </div>
-
 
 <script>
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbw8GV-MmB-8AhqWsBtmblXsqVnKfSCNgtMUY9zFbFVxPf2y5vGIQgDIqeq-cnlvO-Uv/exec";
+    const webAppUrl = "https://script.google.com/macros/s/AKfycbyEZ_AeZbk0xf4DoEx4E05l0dZuhr6EpH-dVAOm54EPMq4auRQ7Y_rdSrwWTNpwj3M/exec";
     
     let debounceTimer;
     
@@ -228,10 +231,9 @@
         model: "HAWK16",
         disks: 0,
         size: 0,
-		serverQty: 1
+        serverQty: 1
     };
 
-    // --- THE CALLBACK: Processes payload calculations from Google Spreadsheet ---
     window.callback = function(data) {
         let hwSingle = 0;
         const exportBtn = document.querySelector('.main-btn'); 
@@ -239,29 +241,26 @@
         const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
         const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
         
-        // 1. Single Unit Server Base Price ($12,200 for HAWK64)
-        const cleanModel = state.model.replace("2 x ", "").trim();
-        if (data.fixedModel || cleanModel.startsWith("HAWK")) {
+        const cleanModel = state.model.replace(/^\d+\s*x\s*/, "").trim();
+
+        if (!cleanModel.includes("HAWK8") && (data.fixedModel || cleanModel.startsWith("HAWK"))) {
             hwSingle = parseFloat(data.serverBasePrice) || parseFloat(data.fixedModel) || 0; 
         } else {
-            const markupFactor = parseFloat(data.markup) || 1.30;
-            hwSingle = (parseFloat(data.serverBasePrice) || 0) * markupFactor;
+            let markupFactor = parseFloat(data.markup) || 0.40;
+            if (markupFactor < 1) markupFactor = 1 + markupFactor;
+
+            const baseComponentSum = parseFloat(data.serverBasePrice) || 0;
+            hwSingle = baseComponentSum * markupFactor;
         }
 
-        // Hardware Total = Unit Price ($12,200) * Server Qty (2) = $24,400.00
         const hwFinal = hwSingle * (state.serverQty || 1);
-
-        // 2. Storage Price
         const driveUnitPrice = parseFloat(data.driveUnitPrice) || 0;
         const storageFinal = driveUnitPrice * state.disks;
 
-        // 3. Map Dynamic Software Licensing Rows
         updateLicenseUIFromData(basicQty, faceQty, lprQty, data.licNeural, data.licFace, data.licLpr);
 
-        // 4. Combined Total ($24,400 + $5,600 = $30,000.00)
         const systemTotalCombined = hwFinal + storageFinal;
 
-        // Subtitle rendering for multi-server quotes
         const eachSubtitleHtml = (state.serverQty > 1) ? `
             <div style="font-size: 11px; color: #718096; font-weight: normal; margin-top: 3px;">
                 ($${hwSingle.toLocaleString(undefined, {minimumFractionDigits: 2})} each)
@@ -280,7 +279,6 @@
         
         updateLabels();
         
-        // 5. Interface State Management Toggle
         document.getElementById('calcStatus').innerText = "Ready";
         if (basicQty > 0 || faceQty > 0 || lprQty > 0) {
             exportBtn.disabled = false;
@@ -299,22 +297,25 @@
         if (exportBtn) exportBtn.disabled = true; 
         
         const requestId = ++currentRequestId;
-        
-        // Strip out "2 x " so Google Sheets finds "HAWK64" ($12,200.00)
-        const cleanModelForSheet = state.model.replace("2 x ", "").trim();
+        const cleanModelForSheet = state.model.replace(/^\d+\s*x\s*/, "").trim();
+        const raidTypeVal = document.getElementById('raidType') ? document.getElementById('raidType').value : "N/A";
 
-        // Build URL Parameter mappings
+        const sheetModelName = cleanModelForSheet.includes("HAWK8") ? "HAWK8" : cleanModelForSheet;
+        const isRaid10Server = (cleanModelForSheet === "HAWK8 (Server)" && raidTypeVal === "RAID 10");
+        const isTower = (cleanModelForSheet === "HAWK8 (Tower)");
+
         const params = { 
-            model: cleanModelForSheet, // <--- Sends "HAWK64"
-            cpu: document.getElementById('cpu') ? (document.getElementById('cpu').innerText || "Intel Ultra 5") : "Intel Ultra 5", 
-            ram: document.getElementById('ramSelect') ? (document.getElementById('ramSelect').innerText || "Memory (RAM) 16GB") : "Memory (RAM) 16GB", 
-            serverCase: (cleanModelForSheet === "HAWK8") ? "Tower" : "Chassis",
-            bay: document.getElementById('bays') ? (document.getElementById('bays').innerText || "5 HDD Bay") : "5 HDD Bay", 
-            raidCard: document.getElementById('raidCard') ? (document.getElementById('raidCard').innerText || "RAID Controller") : "RAID Controller",
-            gpu: document.getElementById('gpu') ? (document.getElementById('gpu').innerText || "NVIDIA RTX2000ADA") : "NVIDIA RTX2000ADA",
+            model: sheetModelName,
+            isTower: isTower ? "true" : "false",
+            serverCase: isTower ? "Tower" : "Chassis",
+            cpu: "Intel Ultra 5",
+            ram: "Memory (RAM) 16GB",
+            gpu: "NVIDIA RTX2000ADA",
+            metadata: (cleanModelForSheet === "HAWK32" || cleanModelForSheet.includes("HAWK64")) ? "2TB" : "1TB",
+            bay: isTower ? "None" : "5 HDD Bay",
+            raidCard: isRaid10Server ? "RAID Controller" : "None",
             driveQty: state.disks, 
             driveSize: state.size, 
-            metadata: (cleanModelForSheet === "HAWK16" || cleanModelForSheet === "HAWK8") ? "1TB" : "2TB",
             callback: "callback_" + requestId 
         };
 
@@ -337,22 +338,41 @@
         updateRAID();
         fetchPrices();
     }
+	
+    function onRaidTypeChange() {
+        updateStandardHardware();
+        calculateArchive();
+    }
 
     function updateRAID() {
+    const raidBox = document.querySelector('.raid-result-box');
+    const raidTypeVal = document.getElementById('raidType') ? document.getElementById('raidType').value : "N/A";
+
     const n = parseInt(document.getElementById('raidDisks').value) || 0;
     const s = parseFloat(document.getElementById('raidSize').value) || 0;
     const requiredArchiveTB = parseFloat(document.getElementById('dispArchive').innerText) || 0;
-    
-    // RAID 10 Usable Capacity Math
-    const cap = (n >= 4) ? (n / 2) * s : 0;
-    const fault = (n >= 4) ? "1 drive/set" : "None";
-    
+
+    let cap = 0;
+    let fault = "";
+    let title = "";
+
+    // CLEAN TITLE & CAPACITY LOGIC
+    if (raidTypeVal === "N/A") {
+        cap = n * s;
+        fault = "None (No Redundancy)";
+        title = "Storage Summary (Non-RAID)";
+    } else {
+        cap = (n >= 4) ? (n / 2) * s : 0;
+        fault = (n >= 4) ? "1 drive/set" : "None";
+        title = "RAID 10 Summary";
+    }
+
+    if (raidBox) raidBox.style.display = 'block';
+
     document.getElementById('raidCap').innerText = cap.toFixed(1) + " TB";
-    document.getElementById('raidLabelTop').innerText = "RAID 10";
+    document.getElementById('raidLabelTop').innerText = title;
     document.getElementById('raidFault').innerText = fault;
 
-    // Red warning box trigger if usable capacity is lower than required archive
-    const raidBox = document.querySelector('.raid-result-box');
     let warningMsg = document.getElementById('raidWarningText');
 
     if (cap < requiredArchiveTB && requiredArchiveTB > 0) {
@@ -366,7 +386,7 @@
             warningMsg.style.cssText = 'font-size: 12px; font-weight: bold; margin-top: 8px; color: #c53030;';
             raidBox.appendChild(warningMsg);
         }
-        warningMsg.innerText = `⚠️ Insufficient Storage: Usable capacity (${cap.toFixed(1)} TB) is less than required archive (${requiredArchiveTB.toFixed(1)} TB). Select a larger drive size!`;
+        warningMsg.innerText = `⚠️ Insufficient Storage: Selected capacity (${cap.toFixed(1)} TB) is less than required archive (${requiredArchiveTB.toFixed(2)} TB). Please select a larger drive size!`;
     } else {
         raidBox.style.borderColor = "#38a169";
         raidBox.style.backgroundColor = "#f0fff4";
@@ -375,117 +395,365 @@
     }
 }
 
-// Dropdown change handler triggered when user picks a different HDD size
-function onCustomDriveChange() {
-    const selectedSize = parseFloat(document.getElementById('raidSize').value) || 0;
-    state.size = selectedSize;
-    
-    // Update display capacity marker
-    document.getElementById('dispArchiveMark').innerText = (state.disks * selectedSize).toFixed(1);
-    
-    calculate();
-}
+    function onCustomDriveChange() {
+        const raidSizeElement = document.getElementById('raidSize');
+        const raidDisksElement = document.getElementById('raidDisks');
 
-    function calculateArchive() {
-    const modelDropdown = document.getElementById('modelSelect');
-    const basicQty = parseInt(document.getElementById('camQty').value) || 0;
-    if (document.getElementById('neuralCamQty')) {
-        document.getElementById('neuralCamQty').value = basicQty;
-    }
-    
-    const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
-    const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
-    const exportBtn = document.querySelector('.main-btn');
-    
-    // Zero baseline validation check
-    if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
-        if (exportBtn) exportBtn.disabled = true;
-        document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
-        document.getElementById('hwPriceDisplay').innerText = "$0.00";
-        document.getElementById('storagePriceDisplay').innerText = "$0.00";
-        
-        if (document.getElementById('systemTotalPriceDisplay')) {
-            document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
+        if (raidSizeElement) {
+            state.size = parseFloat(raidSizeElement.value) || 0;
         }
-        
-        document.getElementById('prevSpecDisplay').innerText = "Please select a model...";
-        document.getElementById('videoStorageDisplayLabel').innerText = "Video Storage Hard Drives";
-        document.getElementById('licenseBreakdown').style.display = 'none'; 
-        return; 
+        if (raidDisksElement) {
+            state.disks = parseInt(raidDisksElement.value) || 1;
+        }
+
+        const cleanModel = state.model.replace("2 x ", "").trim();
+        document.getElementById('dispArchiveMark').innerText = (state.disks * state.size).toFixed(1);
+
+        calculate();
     }
 
-    // --- MODEL SELECTION ---
-    let selectedModel = "HAWK16";
-    state.serverQty = 1;
-
-    if (basicQty <= 16) {
-        selectedModel = "HAWK16";
-    } else if (basicQty <= 32) {
-        selectedModel = "HAWK32";
-    } else if (basicQty <= 64) {
-        selectedModel = "HAWK64";
-    } else if (basicQty <= 127) {
-        selectedModel = "HAWK64";
-        state.serverQty = 2;
-    } else {
-        selectedModel = "Custom Build";
-    }
-
-    state.model = (state.serverQty === 2) ? "2 x HAWK64" : selectedModel;
-    if (modelDropdown) modelDropdown.value = selectedModel;
-    
-    updateStandardHardware();
-
-    // --- ARCHIVE & STORAGE ALLOCATION ---
-    const totalArchiveTB = (basicQty * 711.92) / 1000;
-    const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
-
-    const availableSizes = [4, 6, 8, 10, 12, 16, 22]; 
-    let selectedQty = (selectedModel === "HAWK64" || selectedModel === "2 x HAWK64") ? 8 : 4; 
-    
-    // Auto-calculate the minimum disk size needed for this camera count
-    let autoSize = 6;
-    if (totalArchiveTB > 0) {
-        let foundMatch = false;
-        for (let s of availableSizes) {
-            if ((s * (selectedQty / 2)) >= totalArchiveTB) {
-                autoSize = s;
-                foundMatch = true;
-                break;
+    function onCustomDiskQtyChange() {
+        const raidDisksElement = document.getElementById('raidDisks');
+        if (raidDisksElement) {
+            state.disks = parseInt(raidDisksElement.value) || 4;
+            
+            const cleanModelStr = state.model.replace("2 x ", "").trim();
+            
+            if ((cleanModelStr === "HAWK16" || cleanModelStr === "HAWK32" || cleanModelStr === "HAWK8 (Server)") && state.disks > 5) {
+                alert(`Note: ${cleanModelStr} has a 5-bay chassis limit. Selecting ${state.disks} disks will require upgrading the chassis to HAWK64.`);
+                
+                state.model = "HAWK64";
+                const modelDropdown = document.getElementById('modelSelect');
+                if (modelDropdown) modelDropdown.value = "HAWK64";
+                updateStandardHardware();
             }
         }
-        if (!foundMatch) autoSize = 22;
+        
+        document.getElementById('dispArchiveMark').innerText = (state.disks * state.size).toFixed(1);
+        calculateArchive();
     }
 
-    const raidSizeElement = document.getElementById('raidSize');
-    
-    // If the input was re-initialized, set dropdown to optimal autoSize
-    if (document.activeElement.id === 'camQty' || document.activeElement.id === 'faceCamQty' || document.activeElement.id === 'lprCamQty') {
-        raidSizeElement.value = autoSize;
+    function onCustomModelChange() {
+        const modelDropdown = document.getElementById('modelSelect');
+        if (modelDropdown) {
+            state.model = modelDropdown.value;
+            state.serverQty = (state.model === "2 x HAWK64") ? 2 : 1;
+        }
+
+        updateStandardHardware();
+
+        const basicQty = parseInt(document.getElementById('camQty').value) || 0;
+        const raidDisksElement = document.getElementById('raidDisks');
+        const raidTypeElement = document.getElementById('raidType');
+        const optDisk1 = raidDisksElement ? raidDisksElement.querySelector('option[value="1"]') : null;
+
+        const cleanModelStr = state.model.replace(/^\d+\s*x\s*/, "").trim();
+
+        if (cleanModelStr.includes("HAWK8")) {
+            if (optDisk1) {
+                optDisk1.hidden = false;
+                optDisk1.style.display = "";
+            }
+            if (raidDisksElement) {
+                raidDisksElement.value = "1";
+                raidDisksElement.disabled = (cleanModelStr === "HAWK8 (Tower)");
+                raidDisksElement.style.backgroundColor = (cleanModelStr === "HAWK8 (Tower)") ? "#edf2f7" : "#f8fafc";
+                raidDisksElement.style.cursor = (cleanModelStr === "HAWK8 (Tower)") ? "not-allowed" : "pointer";
+            }
+            if (raidTypeElement) {
+                if (cleanModelStr === "HAWK8 (Tower)") {
+                    raidTypeElement.value = "N/A";
+                    raidTypeElement.disabled = true;
+                } else {
+                    if (!raidTypeElement.value || raidTypeElement.value === "") {
+                        raidTypeElement.value = "N/A";
+                    }
+                    raidTypeElement.disabled = false;
+                }
+            }
+        } else {
+            if (optDisk1) {
+                optDisk1.hidden = true;
+                optDisk1.style.display = "none";
+            }
+            if (raidDisksElement) {
+                if (basicQty > 0) {
+                    raidDisksElement.disabled = false;
+                    raidDisksElement.style.backgroundColor = "#f8fafc";
+                    raidDisksElement.style.cursor = "pointer";
+                }
+                if (raidDisksElement.value === "1") raidDisksElement.value = "4";
+            }
+            if (raidTypeElement) raidTypeElement.value = "RAID 10";
+        }
+
+        calculateArchive();
     }
 
-    const currentSelectedSize = parseFloat(raidSizeElement.value) || autoSize;
+    function calculateArchive() {
+        const modelDropdown = document.getElementById('modelSelect');
+        const basicQty = parseInt(document.getElementById('camQty').value) || 0;
+        if (document.getElementById('neuralCamQty')) {
+            document.getElementById('neuralCamQty').value = basicQty;
+        }
+        
+        const faceQty = parseInt(document.getElementById('faceCamQty').value) || 0;
+        const lprQty = parseInt(document.getElementById('lprCamQty').value) || 0;
+        const exportBtn = document.querySelector('.main-btn');
+        
+        const raidDisksElement = document.getElementById('raidDisks');
+        const raidSizeElement = document.getElementById('raidSize');
+        const raidTypeElement = document.getElementById('raidType');
 
-    state.disks = selectedQty;
-    state.size = currentSelectedSize;
+        // --- 1. STANDBY STATE (0 CAMERAS) ---
+        if (basicQty === 0 && faceQty === 0 && lprQty === 0) {
+            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "";
+            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "";
+            if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "";
+            if (document.getElementById('bays')) document.getElementById('bays').innerText = "";
+            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "";
 
-    document.getElementById('raidDisks').value = selectedQty;
-    document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
-    document.getElementById('dispArchiveMark').innerText = (selectedQty * currentSelectedSize).toFixed(1);
+            if (modelDropdown) {
+                modelDropdown.value = "";
+                modelDropdown.disabled = true;
+                modelDropdown.style.backgroundColor = "#edf2f7";
+                modelDropdown.style.cursor = "not-allowed";
+            }
+            if (raidTypeElement) {
+                raidTypeElement.value = "";
+                raidTypeElement.disabled = true;
+                raidTypeElement.style.backgroundColor = "#edf2f7";
+                raidTypeElement.style.cursor = "not-allowed";
+            }
+            if (raidDisksElement) {
+                raidDisksElement.value = "";
+                raidDisksElement.disabled = true;
+                raidDisksElement.style.backgroundColor = "#edf2f7";
+                raidDisksElement.style.cursor = "not-allowed";
+            }
+            if (raidSizeElement) {
+                raidSizeElement.value = "";
+                raidSizeElement.disabled = true;
+                raidSizeElement.style.backgroundColor = "#edf2f7";
+                raidSizeElement.style.cursor = "not-allowed";
+            }
 
-    const metaContainer = document.getElementById('dispMeta');
-    if (totalMetaGB >= 1000) {
-        metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
-        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1.00" : "2.00";
-        metaContainer.nextSibling.textContent = " TB ";
-    } else {
-        metaContainer.innerText = totalMetaGB.toFixed(2);
-        document.getElementById('dispMetaMark').innerText = (selectedModel === "HAWK16") ? "1000" : "2000";
-        metaContainer.nextSibling.textContent = " GB ";
+            const disclaimerElem = document.getElementById('hawk8Disclaimer');
+            if (disclaimerElem) disclaimerElem.style.display = "none";
+
+            if (exportBtn) exportBtn.disabled = true;
+            document.getElementById('calcStatus').innerText = "Enter Camera Quantities";
+            document.getElementById('hwPriceDisplay').innerText = "$0.00";
+            document.getElementById('storagePriceDisplay').innerText = "$0.00";
+            
+            if (document.getElementById('systemTotalPriceDisplay')) {
+                document.getElementById('systemTotalPriceDisplay').innerText = "$0.00";
+            }
+            
+            document.getElementById('prevModel').innerText = "Select Model";
+            document.getElementById('prevSpecDisplay').innerText = "Please select a model...";
+            document.getElementById('videoStorageDisplayLabel').innerText = "Video Storage Hard Drives";
+            
+            const lb = document.getElementById('licenseBreakdown');
+            if (lb) lb.style.display = 'none';
+
+            return; 
+        }
+
+        const activeElemId = document.activeElement ? document.activeElement.id : '';
+        const isEditingCameras = (activeElemId === 'camQty' || activeElemId === 'faceCamQty' || activeElemId === 'lprCamQty');
+
+        if (raidSizeElement) {
+            raidSizeElement.disabled = false;
+            raidSizeElement.style.backgroundColor = "#f8fafc";
+            raidSizeElement.style.cursor = "pointer";
+        }
+
+        // --- 2. AUTOMATIC MODEL SELECTION ---
+        if (basicQty >= 65 && basicQty <= 124) {
+            state.serverQty = 2;
+            state.model = "2 x HAWK64";
+            if (modelDropdown) {
+                modelDropdown.value = "HAWK64";
+                modelDropdown.disabled = true;
+                modelDropdown.style.backgroundColor = "#edf2f7";
+                modelDropdown.style.cursor = "not-allowed";
+            }
+        } else {
+            if (modelDropdown) {
+                modelDropdown.disabled = false;
+                modelDropdown.style.backgroundColor = "#f8fafc";
+                modelDropdown.style.cursor = "pointer";
+            }
+
+            if (basicQty > 124) {
+                state.serverQty = Math.ceil(basicQty / 64);
+                state.model = `${state.serverQty} x HAWK64`;
+                if (modelDropdown) modelDropdown.value = "HAWK64";
+            } else {
+                state.serverQty = 1;
+                if (isEditingCameras || !modelDropdown.value) {
+                    let autoModel = "HAWK16";
+                    if (basicQty <= 8) autoModel = "HAWK8 (Server)";
+                    else if (basicQty <= 16) autoModel = "HAWK16";
+                    else if (basicQty <= 32) autoModel = "HAWK32";
+                    else if (basicQty <= 64) autoModel = "HAWK64";
+
+                    state.model = autoModel;
+                    if (modelDropdown) modelDropdown.value = autoModel;
+                } else {
+                    state.model = modelDropdown.value;
+                }
+            }
+        }
+
+        updateStandardHardware();
+
+        // --- 3. STORAGE & RAID DROPDOWN LOGIC ---
+        const totalArchiveTB = (basicQty * 711.92) / 1000;
+        const totalMetaGB = (basicQty + faceQty + lprQty) * 37.90;
+        const availableSizes = [4, 6, 8, 10, 12, 16, 22]; 
+        const cleanModelStr = state.model.replace(/^\d+\s*x\s*/, "").trim();
+
+        let raidTypeVal = raidTypeElement ? raidTypeElement.value : "RAID 10";
+
+        if (cleanModelStr === "HAWK8 (Tower)") {
+            if (raidTypeElement) {
+                raidTypeElement.value = "N/A";
+                raidTypeElement.disabled = true;
+                raidTypeElement.style.backgroundColor = "#edf2f7";
+                raidTypeElement.style.cursor = "not-allowed";
+            }
+            raidTypeVal = "N/A";
+        } else if (cleanModelStr === "HAWK8 (Server)") {
+            if (raidTypeElement) {
+                raidTypeElement.disabled = false;
+                raidTypeElement.style.backgroundColor = "#f8fafc";
+                raidTypeElement.style.cursor = "pointer";
+                
+                if (!raidTypeElement.value || raidTypeElement.value === "") {
+                    raidTypeElement.value = "N/A";
+                }
+                raidTypeVal = raidTypeElement.value;
+            }
+        } else {
+            if (raidTypeElement) {
+                raidTypeElement.value = "RAID 10";
+                raidTypeElement.disabled = true;
+                raidTypeElement.style.backgroundColor = "#edf2f7";
+                raidTypeElement.style.cursor = "not-allowed";
+            }
+            raidTypeVal = "RAID 10";
+        }
+
+        const optDisks = raidDisksElement ? raidDisksElement.querySelectorAll('option') : [];
+
+        if (cleanModelStr === "HAWK8 (Tower)") {
+            optDisks.forEach(opt => {
+                const val = parseInt(opt.value);
+                const isValid = (val >= 1 && val <= 3);
+                opt.hidden = !isValid;
+                opt.style.display = isValid ? "" : "none";
+            });
+            if (raidDisksElement) {
+                raidDisksElement.disabled = false;
+                raidDisksElement.style.backgroundColor = "#f8fafc";
+                raidDisksElement.style.cursor = "pointer";
+                if (parseInt(raidDisksElement.value) > 3) raidDisksElement.value = "1";
+            }
+        } else if (cleanModelStr === "HAWK8 (Server)" && raidTypeVal === "N/A") {
+            optDisks.forEach(opt => {
+                const val = parseInt(opt.value);
+                const isValid = (val >= 1 && val <= 5);
+                opt.hidden = !isValid;
+                opt.style.display = isValid ? "" : "none";
+            });
+            if (raidDisksElement) {
+                raidDisksElement.disabled = false;
+                raidDisksElement.style.backgroundColor = "#f8fafc";
+                raidDisksElement.style.cursor = "pointer";
+                if (parseInt(raidDisksElement.value) > 5) raidDisksElement.value = "1";
+            }
+        } else {
+            optDisks.forEach(opt => {
+                const val = parseInt(opt.value);
+                const isValid = (val === 4 || val === 6 || val === 8);
+                opt.hidden = !isValid;
+                opt.style.display = isValid ? "" : "none";
+            });
+            if (raidDisksElement) {
+                raidDisksElement.disabled = false;
+                raidDisksElement.style.backgroundColor = "#f8fafc";
+                raidDisksElement.style.cursor = "pointer";
+                if (parseInt(raidDisksElement.value) < 4 || parseInt(raidDisksElement.value) === 5) {
+                    raidDisksElement.value = "4";
+                }
+            }
+        }
+
+        let selectedQty = 4;
+        let autoSize = raidSizeElement ? parseFloat(raidSizeElement.value) || 6 : 6;
+
+        if (cleanModelStr.includes("HAWK8") && raidTypeVal === "N/A") {
+            if (raidDisksElement && (!raidDisksElement.value || raidDisksElement.value === "")) {
+                raidDisksElement.value = "1";
+            }
+            
+            selectedQty = parseInt(raidDisksElement ? raidDisksElement.value : 1) || 1;
+
+            if (isEditingCameras && totalArchiveTB > 0) {
+                autoSize = availableSizes.find(s => (s * selectedQty) >= totalArchiveTB) || 22;
+            }
+        } else {
+            let driveCountOptions = (cleanModelStr === "HAWK64") ? [4, 6, 8] : [4]; 
+            if (totalArchiveTB > 0) {
+                let foundMatch = false;
+                for (let qty of driveCountOptions) {
+                    for (let s of availableSizes) {
+                        if ((s * (qty / 2)) >= totalArchiveTB) {
+                            selectedQty = qty;
+                            if (isEditingCameras) autoSize = s;
+                            foundMatch = true;
+                            break;
+                        }
+                    }
+                    if (foundMatch) break;
+                }
+                if (!foundMatch && isEditingCameras) {
+                    selectedQty = (cleanModelStr === "HAWK64") ? 8 : 4;
+                    autoSize = 22;
+                }
+            }
+
+            if (raidDisksElement && (!raidDisksElement.value || raidDisksElement.value === "" || isEditingCameras)) {
+                raidDisksElement.value = selectedQty.toString();
+            }
+        }
+
+        if (raidSizeElement && (!raidSizeElement.value || raidSizeElement.value === "" || isEditingCameras)) {
+            raidSizeElement.value = autoSize.toString();
+        }
+
+        state.disks = parseInt(raidDisksElement ? raidDisksElement.value : selectedQty) || selectedQty;
+        state.size = parseFloat(raidSizeElement ? raidSizeElement.value : autoSize) || autoSize;
+
+        document.getElementById('dispArchive').innerText = totalArchiveTB.toFixed(2);
+        document.getElementById('dispArchiveMark').innerText = (state.disks * state.size).toFixed(1);
+
+        const metaContainer = document.getElementById('dispMeta');
+        if (metaContainer) {
+            if (totalMetaGB >= 1000) {
+                metaContainer.innerText = (totalMetaGB / 1000).toFixed(2);
+                document.getElementById('dispMetaMark').innerText = (cleanModelStr === "HAWK16" || cleanModelStr.includes("HAWK8")) ? "1.00" : "2.00";
+            } else {
+                metaContainer.innerText = totalMetaGB.toFixed(2);
+                document.getElementById('dispMetaMark').innerText = (cleanModelStr === "HAWK16" || cleanModelStr.includes("HAWK8")) ? "1000" : "2000";
+            }
+        }
+
+        updateRAID();
+        fetchPrices();
     }
-
-    calculate();
-}
 
     function updateLicenseUIFromData(n, f, l, pNeural, pFace, pLpr) {
         const licenseRows = document.getElementById('licenseRows');
@@ -524,46 +792,92 @@ function onCustomDriveChange() {
     }
 
     function updateStandardHardware() {
-    const model = state.model;
-    if (model === "HAWK16") { 
-        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
-        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
-        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-        if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
-        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+        const model = state.model;
+        const disclaimerElem = document.getElementById('hawk8Disclaimer');
+
+        if (model === "HAWK8 (Tower)") { 
+            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
+            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "16GB Kingston DDR5-5600"; 
+            if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "None"; 
+            if (document.getElementById('bays')) document.getElementById('bays').innerText = "3 Hard Drive Slot (Internal)"; 
+            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+
+            if (disclaimerElem) disclaimerElem.style.display = "block";
+        }
+        else if (model === "HAWK8 (Server)") {
+            if (disclaimerElem) disclaimerElem.style.display = "none";
+
+            if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
+            if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "16GB Kingston DDR5-5600"; 
+            if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
+            if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+
+            const currentRaidType = document.getElementById('raidType') ? document.getElementById('raidType').value : "N/A";
+
+            if (document.getElementById('raidCard')) {
+                document.getElementById('raidCard').innerText = (currentRaidType === "RAID 10") ? "RAID Controller" : "None";
+            }
+        }
+        else {
+            if (disclaimerElem) disclaimerElem.style.display = "none";
+
+            if (model === "HAWK16") { 
+                if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 5"; 
+                if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+                if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+                if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
+                if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+            }
+            else if (model === "HAWK32") { 
+                if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 7"; 
+                if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
+                if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+                if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
+                if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+            }
+            else if (model === "HAWK64" || model.includes("HAWK64")) { 
+                if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 9"; 
+                if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; 
+                if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
+                if (document.getElementById('bays')) document.getElementById('bays').innerText = "8 HDD Bay"; 
+                if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
+            }
+        }
+        updateLabels();
     }
-    else if (model === "HAWK32") { 
-        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 7"; 
-        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 16GB"; 
-        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-        if (document.getElementById('bays')) document.getElementById('bays').innerText = "5 HDD Bay"; 
-        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
-    }
-    else if (model === "HAWK64" || model === "2 x HAWK64") { 
-        if (document.getElementById('cpu')) document.getElementById('cpu').innerText = "Intel Ultra 9"; 
-        if (document.getElementById('ramSelect')) document.getElementById('ramSelect').innerText = "Memory (RAM) 32GB"; 
-        if (document.getElementById('raidCard')) document.getElementById('raidCard').innerText = "RAID Controller"; 
-        if (document.getElementById('bays')) document.getElementById('bays').innerText = "8 HDD Bay"; 
-        if (document.getElementById('gpu')) document.getElementById('gpu').innerText = "NVIDIA RTX2000ADA"; 
-    }
-    updateLabels();
-}
 
     function updateLabels() {
         const model = state.model;
         const n = state.disks;
         const s = state.size;
-        const metaText = (model === "HAWK16") ? "1TB Metadata" : "2TB Metadata";
+        const cleanModel = model.replace(/^\d+\s*x\s*/, "").trim();
 
-        if (document.getElementById('prevModel')) document.getElementById('prevModel').innerText = model;
+        const metaText = (cleanModel === "HAWK16" || cleanModel.includes("HAWK8")) ? "1TB Metadata" : "2TB Metadata";
+
+        if (document.getElementById('prevModel')) {
+            document.getElementById('prevModel').innerText = model;
+        }
 
         const cpuText = document.getElementById('cpu') ? document.getElementById('cpu').innerText : "Intel Ultra 5";
         const ramText = document.getElementById('ramSelect') ? document.getElementById('ramSelect').innerText : "Memory (RAM) 16GB";
-        const baysText = document.getElementById('bays') ? document.getElementById('bays').innerText : "5 HDD Bay";
+        const raidCardText = document.getElementById('raidCard') ? document.getElementById('raidCard').innerText.trim() : "";
+        const baysText = document.getElementById('bays') ? document.getElementById('bays').innerText.trim() : "";
         const gpuText = document.getElementById('gpu') ? document.getElementById('gpu').innerText : "NVIDIA RTX2000ADA";
 
+        let specParts = [cpuText, ramText, "1TB OS", metaText];
+
+        if (raidCardText && raidCardText !== "None") {
+            specParts.push(raidCardText);
+        }
+
+        if (baysText && baysText !== "None") {
+            specParts.push(baysText);
+        }
+
+        specParts.push(gpuText, "Windows 11 Pro & Netflow Ready");
+
         if (document.getElementById('prevSpecDisplay')) {
-            document.getElementById('prevSpecDisplay').innerText = `${cpuText}, ${ramText}, 1TB OS, ${metaText}, RAID Controller, ${baysText}, ${gpuText}, Windows 11 Pro & Netflow Ready`;
+            document.getElementById('prevSpecDisplay').innerText = specParts.join(", ");
         }
 
         const storageLabel = document.getElementById('videoStorageDisplayLabel');
@@ -573,31 +887,31 @@ function onCustomDriveChange() {
     }
 
     function downloadPDF() {
-        let myPDF;
-        if (window.jspdf && window.jspdf.jsPDF) {
-            myPDF = window.jspdf.jsPDF;
-        } else if (window.jsPDF) {
-            myPDF = window.jsPDF;
-        } else {
-            alert("PDF Export Library not loaded completely. Please refresh page.");
-            return;
-        }
-        
-        const doc = new myPDF();
+    let myPDF;
+    if (window.jspdf && window.jspdf.jsPDF) {
+        myPDF = window.jspdf.jsPDF;
+    } else if (window.jsPDF) {
+        myPDF = window.jsPDF;
+    } else {
+        alert("PDF Export Library not loaded completely. Please refresh page.");
+        return;
+    }
     
-   const userIntegratorInput = document.getElementById('integratorName').value.trim();
-const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN - Integrator";
-        const poNumber = document.getElementById('poNumber').value || "PO Number";
-        const model = document.getElementById('prevModel').innerText;
-        const specs = document.getElementById('prevSpecDisplay').innerText;
-        const drivesLabel = document.getElementById('videoStorageDisplayLabel').innerText;
-        const combinedSystemPrice = document.getElementById('systemTotalPriceDisplay').innerText;
+    const doc = new myPDF();
 
-        const n = parseInt(document.getElementById('raidDisks').value) || 0;
-        const s = parseFloat(document.getElementById('raidSize').value) || 0;
-        const rawCap = (n * s).toFixed(1); 
-		const raidTypeLabel = "RAID 10"
-        const pageWidth = doc.internal.pageSize.getWidth();
+    const userIntegratorInput = document.getElementById('integratorName').value.trim();
+    const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN - Integrator";
+    const poNumber = document.getElementById('poNumber').value || "PO Number";
+    const model = document.getElementById('prevModel').innerText;
+    const specs = document.getElementById('prevSpecDisplay').innerText;
+    const drivesLabel = document.getElementById('videoStorageDisplayLabel').innerText;
+    const combinedSystemPrice = document.getElementById('systemTotalPriceDisplay').innerText;
+
+    const n = parseInt(document.getElementById('raidDisks').value) || 0;
+    const s = parseFloat(document.getElementById('raidSize').value) || 0;
+    const rawCap = (n * s).toFixed(1); 
+    const raidTypeLabel = document.getElementById('raidType') ? document.getElementById('raidType').value : "RAID 10";
+    const pageWidth = doc.internal.pageSize.getWidth();
 	
 	
 	const watchnetLogo = 'data:image/png;base64,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'; 
@@ -793,46 +1107,44 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
         currentY += licenseBoxHeight + 10;
     }
 
-    // --- 4. DYNAMIC RAID SUMMARY BOX (GREEN VALID VS RED WARNING) ---
-    const usableCapVal = parseFloat(document.getElementById('raidCap').innerText) || 0;
+// --- 4. DYNAMIC STORAGE & RAID SUMMARY BOX ---
+    const usableCapVal = (raidTypeLabel === "N/A") ? (n * s) : ((n >= 4) ? (n / 2) * s : 0);
     const requiredArchiveVal = parseFloat(document.getElementById('dispArchive').innerText) || 0;
     const isDeficit = (usableCapVal < requiredArchiveVal) && (requiredArchiveVal > 0);
 
-    // Expand height dynamically to accommodate wrapped warning text
     const raidBoxHeight = isDeficit ? 46 : 38; 
+    const boxTitle = (raidTypeLabel === "N/A") ? "STORAGE SUMMARY (NON-RAID)" : "RAID CONFIGURATION SUMMARY";
 
     if (isDeficit) {
-        // Red Warning Container
         doc.setDrawColor(229, 62, 62).setLineWidth(0.5).setFillColor(255, 245, 245);
         doc.rect(14, currentY, 182, raidBoxHeight, 'FD');
 
         doc.setTextColor(197, 48, 48).setFontSize(11).setFont("helvetica", "bold");
-        doc.text("RAID SUMMARY: RAID 10 (STORAGE WARNING)", 20, currentY + 8);
+        doc.text(`${boxTitle} - INSUFFICIENT STORAGE`, 20, currentY + 8);
 
         doc.setTextColor(0).setFontSize(9.5).setFont("helvetica", "normal");
-        doc.text(`Configuration: ${raidTypeLabel} | RAW: ${rawCap} TB`, 20, currentY + 17);
+        doc.text(`Configuration: ${raidTypeLabel} | Selected Drive Space: ${rawCap} TB`, 20, currentY + 17);
         doc.text(`Usable Capacity: ${document.getElementById('raidCap').innerText} | Fault Tolerance: ${document.getElementById('raidFault').innerText}`, 20, currentY + 25);
 
-        // Clean text string (No Unicode Emoji) + Split text to fit 170px width cleanly
         doc.setTextColor(197, 48, 48).setFontSize(8).setFont("helvetica", "bold");
-        const warningMsg = `WARNING: Insufficient Storage! Usable capacity (${usableCapVal.toFixed(1)} TB) is less than required archive (${requiredArchiveVal.toFixed(2)} TB). Please select a larger drive size!`;
+        const warningMsg = `WARNING: Insufficient Storage! Selected capacity (${usableCapVal.toFixed(1)} TB) is less than required archive (${requiredArchiveVal.toFixed(2)} TB). Please select a larger drive size!`;
         
         const splitWarning = doc.splitTextToSize(warningMsg, 170);
         doc.text(splitWarning, 20, currentY + 33);
     } else {
-        // Normal Green Container
         doc.setDrawColor(56, 161, 105).setLineWidth(0.5).setFillColor(240, 255, 244);
         doc.rect(14, currentY, 182, raidBoxHeight, 'FD');
 
         doc.setTextColor(47, 133, 90).setFontSize(11).setFont("helvetica", "bold");
-        doc.text("RAID CONFIGURATION SUMMARY", 20, currentY + 8);
+        doc.text(boxTitle, 20, currentY + 8);
 
         doc.setTextColor(0).setFontSize(9.5).setFont("helvetica", "normal");
-        doc.text(`Configuration: ${raidTypeLabel} | RAW: ${rawCap} TB`, 20, currentY + 18);
+        doc.text(`Configuration: ${raidTypeLabel} | Total Capacity: ${rawCap} TB`, 20, currentY + 18);
         doc.text(`Usable Capacity: ${document.getElementById('raidCap').innerText} | Fault Tolerance: ${document.getElementById('raidFault').innerText}`, 20, currentY + 27);
     }
 
     currentY += raidBoxHeight + 10;
+    
 
     // --- 5. Archive Calculations Box (Aligned Layout with Note) ---
     doc.setFillColor(0, 75, 99).rect(14, currentY, 182, 52, 'F').setTextColor(255); 
@@ -873,6 +1185,10 @@ const integrator = userIntegratorInput ? `JSN - ${userIntegratorInput}` : "JSN -
     doc.save(`${integrator}_${poNumber}_Hawk_Quote.pdf`);
 }
 document.addEventListener('DOMContentLoaded', calculateArchive);
+
+window.onload = function() {
+    calculateArchive();
+};
 </script>
 </body>
 </html>
