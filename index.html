@@ -395,6 +395,13 @@
     }
 }
 
+function resetInputError(elem) {
+    if (elem) {
+        elem.style.borderColor = "#edf2f7";
+        elem.style.backgroundColor = "#f8fafc";
+    }
+}
+
     function onCustomDriveChange() {
         const raidSizeElement = document.getElementById('raidSize');
         const raidDisksElement = document.getElementById('raidDisks');
@@ -887,6 +894,41 @@
     }
 
     function downloadPDF() {
+	
+	// 1. FIELD VALIDATION CHECK FOR WEB APP 1
+    const integratorInput = document.getElementById('integratorName');
+    const poInput = document.getElementById('poNumber');
+
+    const integratorVal = integratorInput ? integratorInput.value.trim() : "";
+    const poVal = poInput ? poInput.value.trim() : "";
+
+    let hasError = false;
+
+    if (!integratorVal) {
+        if (integratorInput) {
+            integratorInput.style.borderColor = "#e53e3e";
+            integratorInput.style.backgroundColor = "#fff5f5";
+        }
+        hasError = true;
+    }
+
+    if (!poVal) {
+        if (poInput) {
+            poInput.style.borderColor = "#e53e3e";
+            poInput.style.backgroundColor = "#fff5f5";
+        }
+        hasError = true;
+    }
+
+    if (hasError) {
+        // Focus the first empty field automatically
+        if (!integratorVal && integratorInput) {
+            integratorInput.focus();
+        } else if (!poVal && poInput) {
+            poInput.focus();
+        }
+        return; // Stop PDF export until filled
+    }
     let myPDF;
     if (window.jspdf && window.jspdf.jsPDF) {
         myPDF = window.jspdf.jsPDF;
